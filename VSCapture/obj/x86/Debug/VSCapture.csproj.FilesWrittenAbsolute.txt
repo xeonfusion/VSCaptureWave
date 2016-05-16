@@ -1,0 +1,5 @@
+/Users/johngeorgedon/Documents/Datex connect/Wavecapture/VSCaptureWavev1.004Source/VSCaptureWavev1.004Source/VSCaptureWave/VSCapture/obj/x86/Debug/.NETFramework,Version=v4.0.AssemblyAttribute.cs
+/Users/johngeorgedon/Documents/Datex connect/Wavecapture/VSCaptureWavev1.004Source/VSCaptureWavev1.004Source/VSCaptureWave/VSCapture/bin/Debug/VSCapture.exe.mdb
+/Users/johngeorgedon/Documents/Datex connect/Wavecapture/VSCaptureWavev1.004Source/VSCaptureWavev1.004Source/VSCaptureWave/VSCapture/bin/Debug/VSCapture.exe
+/Users/johngeorgedon/Documents/Datex connect/Wavecapture/VSCaptureWavev1.004Source/VSCaptureWavev1.004Source/VSCaptureWave/VSCapture/obj/x86/Debug/VSCapture.exe
+/Users/johngeorgedon/Documents/Datex connect/Wavecapture/VSCaptureWavev1.004Source/VSCaptureWavev1.004Source/VSCaptureWave/VSCapture/obj/x86/Debug/VSCapture.exe.mdb
