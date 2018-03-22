@@ -1,5 +1,5 @@
 ﻿/*
- * This file is part of VitalSignsCaptureWave v1.004.
+ * This file is part of VitalSignsCaptureWave v1.005.
  * Copyright (C) 2015 John George K., xeonfusion@users.sourceforge.net
 
     VitalSignsCapture is free software: you can redistribute it and/or modify
@@ -771,7 +771,7 @@ namespace VSCapture
 		{
 			if (m_transmissionstart)
 			{
-				m_strBuilder.AppendLine("VitalSignsCaptureWave v1.004");
+				m_strBuilder.AppendLine("VitalSignsCaptureWave v1.005");
 				m_strBuilder.AppendLine("Datex AS3 Monitor");
 
 				m_strBuilder.Append("Date,Time,Heart Rate(/min),Systolic BP(mmHg),Diastolic BP(mmHg),Mean BP(mmHg),SpO2(%),ETCO2(mmHg),");
@@ -790,7 +790,7 @@ namespace VSCapture
 			if (m_wftransmissionstart)
 			{
 				//Write headers
-				m_strBuilderWave.AppendLine("VitalSignsCaptureWave v1.004");
+				m_strBuilderWave.AppendLine("VitalSignsCaptureWave v1.005");
 				m_strBuilderWave.AppendLine("Datex AS3 Monitor");
 
 				m_strBuilderWave.Append ("Time");
@@ -849,19 +849,19 @@ namespace VSCapture
                     break;
 				case DataConstants.DRI_WF_EEG1: 
 					m_strBuilder.Append ("EEG1");
-					m_strBuilder.Append (';');
+					m_strBuilder.Append (',');
 					break;
 				case DataConstants.DRI_WF_EEG2: 
 					m_strBuilder.Append ("EEG2");
-					m_strBuilder.Append (';');
+					m_strBuilder.Append (',');
 					break;
 				case DataConstants.DRI_WF_EEG3: 
 					m_strBuilder.Append ("EEG3");
-					m_strBuilder.Append (';');
+					m_strBuilder.Append (',');
 					break;
 				case DataConstants.DRI_WF_EEG4: 
 					m_strBuilder.Append ("EEG4");
-					m_strBuilder.Append (';');
+					m_strBuilder.Append (',');
 					break;
 
 
@@ -1069,8 +1069,8 @@ namespace VSCapture
 			if(m_shEEG1List.Count != 0) WriteWaveformHeaders (DataConstants.DRI_WF_EEG1);
 			foreach (short WaveValue in m_shEEG1List)
 			{
-				m_strBuilder.Append(dtime);
-				m_strBuilder.Append(';');
+				m_strBuilderWave.Append(dtime);
+				m_strBuilderWave.Append(',');
 				SaveWaveDataLists ("EEG1", WaveValue, 1);
 
 			}
@@ -1080,8 +1080,8 @@ namespace VSCapture
 			if(m_shEEG2List.Count != 0) WriteWaveformHeaders (DataConstants.DRI_WF_EEG2);
 			foreach (short WaveValue in m_shEEG2List)
 			{
-				m_strBuilder.Append(dtime);
-				m_strBuilder.Append(';');
+				m_strBuilderWave.Append(dtime);
+				m_strBuilderWave.Append(',');
 				SaveWaveDataLists ("EEG2", WaveValue, 1);
 
 			}
@@ -1090,8 +1090,8 @@ namespace VSCapture
 			if(m_shEEG3List.Count != 0) WriteWaveformHeaders (DataConstants.DRI_WF_EEG3);
 			foreach (short WaveValue in m_shEEG3List)
 			{
-				m_strBuilder.Append(dtime);
-				m_strBuilder.Append(';');
+				m_strBuilderWave.Append(dtime);
+				m_strBuilderWave.Append(',');
 				SaveWaveDataLists ("EEG3", WaveValue, 1);
 
 			}
@@ -1101,8 +1101,8 @@ namespace VSCapture
 			if(m_shEEG4List.Count != 0) WriteWaveformHeaders (DataConstants.DRI_WF_EEG4);
 			foreach (short WaveValue in m_shEEG4List)
 			{
-				m_strBuilder.Append(dtime);
-				m_strBuilder.Append(';');
+				m_strBuilderWave.Append(dtime);
+				m_strBuilderWave.Append(',');
 				SaveWaveDataLists ("EEG4", WaveValue, 1);
 
 			}

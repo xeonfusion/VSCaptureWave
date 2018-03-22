@@ -1,5 +1,5 @@
 /*
- * This file is part of VitalSignsCaptureWave v1.004.
+ * This file is part of VitalSignsCaptureWave v1.005.
  * Copyright (C) 2015 John George K., xeonfusion@users.sourceforge.net
 
     VitalSignsCapture is free software: you can redistribute it and/or modify
@@ -33,7 +33,7 @@ namespace VSCapture
 		
         static void Main(string[] args)
         {
-            Console.WriteLine("VitalSignsCaptureWave v1.004 (C)2015 John George K.");
+            Console.WriteLine("VitalSignsCaptureWave v1.005 (C)2017 John George K.");
             // Create a new SerialPort object with default settings.
 			DSerialPort _serialPort = DSerialPort.getInstance;
 
@@ -158,7 +158,7 @@ namespace VSCapture
 	                    {
 	                        if (_serialPort.BytesToRead != 0)
 	                        {
-	                            dataEvent.Invoke(new object(), new EventArgs());
+	                            dataEvent.Invoke(_serialPort, new EventArgs());
 	                        }
 	                        
 	                        if (Console.KeyAvailable == true)

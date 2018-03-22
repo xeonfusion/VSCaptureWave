@@ -1,5 +1,5 @@
 ﻿/*
- * This file is part of VitalSignsCaptureWave v1.004.
+ * This file is part of VitalSignsCaptureWave v1.005.
  * Copyright (C) 2015 John George K., xeonfusion@users.sourceforge.net
  * Portions of code (C) 1998 Stefan Lombaard
 
