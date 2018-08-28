@@ -984,7 +984,7 @@ namespace VSCapture
 				m_strBuilderWave.Append(',');
 				SaveWaveDataLists ("INVP2", WaveValue, 0.01);
 			}
-			m_shINVPList.Clear ();
+			m_shINVP2List.Clear ();
 
 			if(m_shPLETHList.Count != 0) WriteWaveformHeaders (DataConstants.DRI_WF_PLETH);
 			foreach (short WaveValue in m_shPLETHList)
