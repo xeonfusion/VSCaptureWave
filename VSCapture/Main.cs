@@ -1,6 +1,6 @@
 /*
- * This file is part of VitalSignsCaptureWave v1.005.
- * Copyright (C) 2015 John George K., xeonfusion@users.sourceforge.net
+ * This file is part of VitalSignsCaptureWave v1.006.
+ * Copyright (C) 2015-18 John George K., xeonfusion@users.sourceforge.net
 
     VitalSignsCapture is free software: you can redistribute it and/or modify
     it under the terms of the GNU Lesser General Public License as published by
@@ -33,19 +33,47 @@ namespace VSCapture
 		
         static void Main(string[] args)
         {
-            Console.WriteLine("VitalSignsCaptureWave v1.005 (C)2017 John George K.");
-            // Create a new SerialPort object with default settings.
-			DSerialPort _serialPort = DSerialPort.getInstance;
+            Console.WriteLine("VitalSignsCaptureWave v1.006 (C)2018 John George K.");
+            Console.WriteLine("For command line usage: -help");
+            Console.WriteLine();
 
-            Console.WriteLine("Select the Port to which Datex AS3 Monitor is to be connected, Available Ports:");
-            foreach (string s in SerialPort.GetPortNames())
+            // Create a new SerialPort object with default settings.
+            DSerialPort _serialPort = DSerialPort.getInstance;
+            string portName;
+            string sInterval;
+            string sWaveformSet;
+
+            var parser = new CommandLineParser();
+            parser.Parse(args);
+
+            if(parser.Arguments.ContainsKey("help"))
             {
-                Console.WriteLine(" {0}", s);
+                Console.WriteLine("VSCapture.exe -port [portname] -interval [number] -waveset [number]");
+                Console.WriteLine("-port <Set serial port name>");
+                Console.WriteLine("-interval <Set numeric transmission interval>");
+                Console.WriteLine("-waveset <Set waveform transmission set option>");
+                Console.WriteLine();
+                return;
             }
 
+            if(parser.Arguments.ContainsKey("port"))
+            {
+                portName = parser.Arguments["port"][0];
+            }
+            else
+            {
+                Console.WriteLine("Select the Port to which Datex AS3 Monitor is to be connected, Available Ports:");
+                foreach (string s in SerialPort.GetPortNames())
+                {
+                    Console.WriteLine(" {0}", s);
+                }
 
-            Console.Write("COM port({0}): ", _serialPort.PortName.ToString());
-            string portName = Console.ReadLine();
+
+                Console.Write("COM port({0}): ", _serialPort.PortName.ToString());
+                portName = Console.ReadLine();
+
+            }
+
 
             if (portName != "")
             {
@@ -68,33 +96,53 @@ namespace VSCapture
 				_serialPort.DataReceived += new SerialDataReceivedEventHandler(p_DataReceived);
 				}
 
-                Console.WriteLine("You may now connect the serial cable to the Datex AS3 Monitor");
-                Console.WriteLine("Press any key to continue..");
+                if(!parser.Arguments.ContainsKey("port")) 
+                {
+                    Console.WriteLine("You may now connect the serial cable to the Datex AS3 Monitor");
+                    Console.WriteLine("Press any key to continue..");
                 
-				Console.ReadKey(true);
-												
+                    Console.ReadKey(true);
+                
+                }
+                								
                 //if (_serialPort.CtsHolding)
                 {
-                    Console.WriteLine();
-                    Console.Write("Enter Numeric data Transmission interval (seconds):");
-                    string sInterval = Console.ReadLine();
+                    if(parser.Arguments.ContainsKey("interval"))
+                    {
+                        sInterval = parser.Arguments["interval"][0];
+                    }
+                    else
+                    {
+                        Console.WriteLine();
+                        Console.Write("Enter Numeric data Transmission interval (seconds):");
+                        sInterval = Console.ReadLine();
+                    }
 
                     short nInterval = 5;
                     if (sInterval != "") nInterval = Convert.ToInt16(sInterval);
 
-					Console.WriteLine();
-					Console.WriteLine("Waveform data Transmission sets:");
-					Console.WriteLine("0. None");
-					Console.WriteLine("1. ECG1, INVP1, INVP2, PLETH");
-					Console.WriteLine("2. ECG1, INVP1, PLETH, CO2, RESP");
-					Console.WriteLine("3. ECG1, PLETH, CO2, RESP, AWP, VOL, FLOW");
-					Console.WriteLine("4. ECG1, ECG2");
-					Console.WriteLine("5. EEG1, EEG2, EEG3, EEG4");
-					Console.WriteLine();
-					Console.Write("Choose Waveform data Transmission set (0-5):");
+					if(parser.Arguments.ContainsKey("waveset"))
+                    {
+                        sWaveformSet = parser.Arguments["waveset"][0];
+                    }
+                    else
+                    {
+                        Console.WriteLine();
+                        Console.WriteLine("Waveform data Transmission sets:");
+                        Console.WriteLine("0. None");
+                        Console.WriteLine("1. ECG1, INVP1, INVP2, PLETH");
+                        Console.WriteLine("2. ECG1, INVP1, PLETH, CO2, RESP");
+                        Console.WriteLine("3. ECG1, PLETH, CO2, RESP, AWP, VOL, FLOW");
+                        Console.WriteLine("4. ECG1, ECG2");
+                        Console.WriteLine("5. EEG1, EEG2, EEG3, EEG4");
+                        Console.WriteLine();
+                        Console.Write("Choose Waveform data Transmission set (0-5):");
 
-					string sWaveformSet = Console.ReadLine();
-					short nWaveformSet = 1;
+                        sWaveformSet = Console.ReadLine();
+                        
+                    }
+
+                    short nWaveformSet = 1;
 					if (sWaveformSet != "") nWaveformSet = Convert.ToInt16(sWaveformSet);
 
 
@@ -291,5 +339,43 @@ namespace VSCapture
 
     }
 
+    public class CommandLineParser
+    {
+        public CommandLineParser()
+        {
+            Arguments = new Dictionary<string, string[]>();
+        }
+
+        public IDictionary<string, string[]> Arguments { get; private set; }
+
+        public void Parse(string[] args)
+        {
+            string currentName = "";
+            var values = new List<string>();
+            foreach (string arg in args)
+            {
+                if (arg.StartsWith("-", StringComparison.InvariantCulture))
+                {
+                    if (currentName != "")
+                        Arguments[currentName] = values.ToArray();
+
+                    values.Clear();
+                    currentName = arg.Substring(1);
+                }
+                else if (currentName == "")
+                    Arguments[arg] = new string[0];
+                else
+                    values.Add(arg);
+            }
+
+            if (currentName != "")
+                Arguments[currentName] = values.ToArray();
+        }
+
+        public bool Contains(string name)
+        {
+            return Arguments.ContainsKey(name);
+        }
+    }
 
 }

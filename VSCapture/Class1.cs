@@ -1,6 +1,6 @@
 ﻿/*
- * This file is part of VitalSignsCaptureWave v1.005.
- * Copyright (C) 2015 John George K., xeonfusion@users.sourceforge.net
+ * This file is part of VitalSignsCaptureWave v1.006.
+ * Copyright (C) 2015-18 John George K., xeonfusion@users.sourceforge.net
 
     VitalSignsCapture is free software: you can redistribute it and/or modify
     it under the terms of the GNU Lesser General Public License as published by
@@ -771,7 +771,7 @@ namespace VSCapture
 		{
 			if (m_transmissionstart)
 			{
-				m_strBuilder.AppendLine("VitalSignsCaptureWave v1.005");
+				m_strBuilder.AppendLine("VitalSignsCaptureWave v1.006");
 				m_strBuilder.AppendLine("Datex AS3 Monitor");
 
 				m_strBuilder.Append("Date,Time,Heart Rate(/min),Systolic BP(mmHg),Diastolic BP(mmHg),Mean BP(mmHg),SpO2(%),ETCO2(mmHg),");
