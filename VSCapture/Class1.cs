@@ -1,6 +1,6 @@
 ﻿/*
- * This file is part of VitalSignsCaptureWave v1.006.
- * Copyright (C) 2015-18 John George K., xeonfusion@users.sourceforge.net
+ * This file is part of VitalSignsCaptureWave v1.007.
+ * Copyright (C) 2015-19 John George K., xeonfusion@users.sourceforge.net
 
     VitalSignsCapture is free software: you can redistribute it and/or modify
     it under the terms of the GNU Lesser General Public License as published by
@@ -25,6 +25,9 @@ using System.Runtime.InteropServices;
 using System.Runtime.Serialization.Formatters.Binary;
 using System.Threading;
 using System.Globalization;
+using System.Runtime.Serialization.Json;
+using System.Net;
+
 
 namespace VSCapture
 {
@@ -45,10 +48,16 @@ namespace VSCapture
         private bool m_storeend = false;
         private bool m_bitshiftnext = false;
         private List<byte> m_bList = new List<byte>();
-        private StringBuilder m_strBuilder = new StringBuilder();
-		private StringBuilder m_strBuilderWave = new StringBuilder();
+        private StringBuilder m_strBuilderWave = new StringBuilder();
 
-		private bool m_wftransmissionstart = true;
+        public List<NumericValResult> m_NumericValList = new List<NumericValResult>();
+        public List<string> m_NumValHeaders = new List<string>();
+        public StringBuilder m_strbuildvalues = new StringBuilder();
+        public StringBuilder m_strbuildheaders = new StringBuilder();
+        public string m_strTimestamp;
+        public int m_dataexportset = 1;
+
+        private bool m_wftransmissionstart = true;
 		private bool m_transmissionstart = true;
 
 		private List<short> m_shECGList = new List<short>();
@@ -69,7 +78,16 @@ namespace VSCapture
 		private List<short> m_shEEG3List = new List<short>();
 		private List<short> m_shEEG4List = new List<short>();
 
+        public string m_DeviceID;
+        public string m_jsonposturl;
 
+        public class NumericValResult
+        {
+            public string Timestamp;
+            public string PhysioID;
+            public string Value;
+            public string DeviceID;
+        }
 
         //Create a singleton serialport subclass
         private static volatile DSerialPort DPort = null;
@@ -339,15 +357,6 @@ namespace VSCapture
 					fullrecord[n] = fArray[n];
 				}
 
-				/*int uMemlen = recorddatasize;
-                IntPtr ptr = Marshal.AllocHGlobal(uMemlen);
-                Marshal.Copy(fullrecord, 0, ptr, uMemlen);
-                Marshal.PtrToStructure(ptr, record_dtx);
-                RecordList.Add(record_dtx);
-                Marshal.DestroyStructure(ptr, typeof(datex_record_type));
-                Marshal.FreeHGlobal(ptr);
-                ptr = IntPtr.Zero;*/
-
 				GCHandle handle2 = GCHandle.Alloc(fullrecord, GCHandleType.Pinned);
 				Marshal.PtrToStructure(handle2.AddrOfPinnedObject(), record_dtx);
 
@@ -516,31 +525,6 @@ namespace VSCapture
 
 		}
 
-        public bool ByteArrayToFile(string _FileName, byte[] _ByteArray, int nWriteLength) 
-        {
-            try 
-            { 
-                // Open file for reading. 
-                FileStream _FileStream = new FileStream(_FileName, FileMode.Append, FileAccess.Write); 
-        
-                // Writes a block of bytes to this stream using data from a byte array
-                _FileStream.Write(_ByteArray, 0, nWriteLength);
-        
-                // close file stream. 
-                _FileStream.Close();
-                 return true;
-            }
-    
-            catch (Exception _Exception) 
-            { 
-                // Error. 
-                Console.WriteLine("Exception caught in process: {0}", _Exception.ToString()); 
-            } 
-            // error occured, return false. 
-            return false;
-        }
-
-        
         public void ReadSubRecords()
         {
 			foreach(datex_record_type dx_record in RecordList)
@@ -558,8 +542,6 @@ namespace VSCapture
                     uint unixtime = dx_record.hdr.r_time;
                     dri_phdb phdata_ptr = new dri_phdb();
 
-                    WriteNumericHeaders();
-
                     for (int i = 0; i < 8 && (srtypeArray[i] != 0xFF); i++)
                     {
                         //if (srtypeArray[i] == DataConstants.DRI_PH_DISPL && srtypeArray[i] !=0xFF)
@@ -574,27 +556,19 @@ namespace VSCapture
 
                             GCHandle handle = GCHandle.Alloc(buffer, GCHandleType.Pinned);
 
-                            /*int uMemlen = buffer.GetLength(0);
-                            IntPtr ptr = Marshal.AllocHGlobal(uMemlen);
-                            Marshal.Copy(buffer, 0, ptr, uMemlen);*/
-
                             switch (i)
                             {
                                 case 0:
                                     Marshal.PtrToStructure(handle.AddrOfPinnedObject(), phdata_ptr.basic);
-                                    //Marshal.PtrToStructure(ptr, phdata_ptr.basic);
                                     break;
                                 case 1:
                                     Marshal.PtrToStructure(handle.AddrOfPinnedObject(), phdata_ptr.ext1);
-                                    //Marshal.PtrToStructure(ptr, phdata_ptr.ext1);
                                     break;
                                 case 2:
                                     Marshal.PtrToStructure(handle.AddrOfPinnedObject(), phdata_ptr.ext2);
-                                    //Marshal.PtrToStructure(ptr, phdata_ptr.ext2);
                                     break;
                                 case 3:
                                     Marshal.PtrToStructure(handle.AddrOfPinnedObject(), phdata_ptr.ext3);
-                                    //Marshal.PtrToStructure(ptr, phdata_ptr.ext3);
                                     break;
                             }
 
@@ -607,24 +581,19 @@ namespace VSCapture
                     DateTime dtDateTime = new DateTime(1970, 1, 1, 0, 0, 0, 0);
                     //dtDateTime = dtDateTime.AddSeconds(unixtime).ToLocalTime();
                     dtDateTime = dtDateTime.AddSeconds(unixtime);
+                    m_strTimestamp = dtDateTime.ToString("G", DateTimeFormatInfo.InvariantInfo);
 
                     Console.WriteLine();
                     Console.WriteLine("Time:{0}", dtDateTime.ToString());
-                    m_strBuilder.Append(dtDateTime.ToShortDateString());
-                    m_strBuilder.Append(',');
-                    m_strBuilder.Append(dtDateTime.ToLongTimeString());
-                    m_strBuilder.Append(',');
-
 
                     ShowBasicSubRecord(phdata_ptr);
                     ShowExt1and2SubRecord(phdata_ptr);
 
-                    /*Marshal.DestroyStructure(ptr, typeof(dri_phdb));
-                        Marshal.FreeHGlobal(ptr);
-                        ptr = IntPtr.Zero;*/
+                    if(m_dataexportset == 2) ExportNumValListToJSON();
+                    SaveNumericValueListRows();
 
                 }
-			}
+            }
 
 
         }
@@ -767,30 +736,12 @@ namespace VSCapture
 
 		}
 
-		public void WriteNumericHeaders()
-		{
-			if (m_transmissionstart)
-			{
-				m_strBuilder.AppendLine("VitalSignsCaptureWave v1.006");
-				m_strBuilder.AppendLine("Datex AS3 Monitor");
-
-				m_strBuilder.Append("Date,Time,Heart Rate(/min),Systolic BP(mmHg),Diastolic BP(mmHg),Mean BP(mmHg),SpO2(%),ETCO2(mmHg),");
-				//m_strBuilder.Append("AA ET, AA FI, AA MAC SUM, AA, O2 FI, N2O FI, N2O ET, RR, T1, T2, P1 HR, P1 Sys, P1 Dia, P1 Mean, P2 HR, P2 Sys, P2 Dia, P2Mean, PPeak, PPlat, TV Exp, ST II(mm),ST V5(mm),ST aVL(mm),");
-				m_strBuilder.Append ("AA ET, AA FI, AA MAC SUM, AA, O2 FI, N2O FI, N2O ET, RR, T1, T2, P1 HR, P1 Sys, P1 Dia, P1 Mean, P2 HR, P2 Sys, P2 Dia, P2Mean,");
-				m_strBuilder.Append("PPeak, PPlat, TV Exp, TV Insp, Peep, MV Exp, Compliance, RR,");
-				m_strBuilder.Append("ST II(mm),ST V5(mm),ST aVL(mm),");
-				m_strBuilder.AppendLine("SE, RE, ENTROPY BSR, BIS, BIS BSR, BIS EMG, BIS SQI");
-
-			}
-			
-		}
-
 		public void WriteWaveformHeaders(byte bWaveformtype)
 		{
 			if (m_wftransmissionstart)
 			{
 				//Write headers
-				m_strBuilderWave.AppendLine("VitalSignsCaptureWave v1.005");
+				m_strBuilderWave.AppendLine("VitalSignsCaptureWave v1.007");
 				m_strBuilderWave.AppendLine("Datex AS3 Monitor");
 
 				m_strBuilderWave.Append ("Time");
@@ -848,20 +799,20 @@ namespace VSCapture
 					m_strBuilderWave.Append(',');
                     break;
 				case DataConstants.DRI_WF_EEG1: 
-					m_strBuilder.Append ("EEG1");
-					m_strBuilder.Append (',');
+					m_strBuilderWave.Append ("EEG1");
+					m_strBuilderWave.Append (',');
 					break;
 				case DataConstants.DRI_WF_EEG2: 
-					m_strBuilder.Append ("EEG2");
-					m_strBuilder.Append (',');
+					m_strBuilderWave.Append ("EEG2");
+					m_strBuilderWave.Append (',');
 					break;
 				case DataConstants.DRI_WF_EEG3: 
-					m_strBuilder.Append ("EEG3");
-					m_strBuilder.Append (',');
+					m_strBuilderWave.Append ("EEG3");
+					m_strBuilderWave.Append (',');
 					break;
 				case DataConstants.DRI_WF_EEG4: 
-					m_strBuilder.Append ("EEG4");
-					m_strBuilder.Append (',');
+					m_strBuilderWave.Append ("EEG4");
+					m_strBuilderWave.Append (',');
 					break;
 
 
@@ -931,10 +882,7 @@ namespace VSCapture
 		public void SaveWaveDataLists(string WaveName, short WaveValue, double decimalshift)
 		{
 			string s1 = WaveValue.ToString ();
-			//ValidateAddData (s1, 0.01, false);
 			ValidateAddWaveData (s1, decimalshift, false);
-
-			//Console.WriteLine ("{0}",s1);
 
 			string filename = string.Format("AS3ExportData{0}.csv", WaveName);
 			string pathcsv = Path.Combine(Directory.GetCurrentDirectory(), filename);
@@ -1117,10 +1065,7 @@ namespace VSCapture
 		public void ShowWaveSubRecordData(short WaveValue)
 		{
 			string s1 = WaveValue.ToString ();
-			//string s1 = ValidateDataFormatString(WaveValue, 1, false);
 			ValidateAddWaveData (s1, 0.01, false);
-
-			//Console.WriteLine ("{0}",s1);
 
 			string pathcsv = Path.Combine(Directory.GetCurrentDirectory(),"AS3ExportDataWave.csv");
 
@@ -1139,33 +1084,27 @@ namespace VSCapture
             short so5 = driSR.basic.SpO2.SpO2;
             short so6 = driSR.basic.co2.et;
 
-            string s1 = ValidateDataFormatString(so1, 1, true);
-            ValidateAddData(so1,1,true);
-                        
-            string s2 = ValidateDataFormatString(so2, 0.01, true);
-            ValidateAddData(so2, 0.01, true);
-            
-            string s3 = ValidateDataFormatString(so3, 0.01, true);
-            ValidateAddData(so3, 0.01, true);
+            string s1 = ValidateAddData("ECG_HR", so1,1,true);
 
-            string s4 = ValidateDataFormatString(so4, 0.01, true);
-            ValidateAddData(so4, 0.01, true);
+            string s2 = ValidateAddData("NIBP_Systolic", so2, 0.01, true);
 
-            string s5 = ValidateDataFormatString(so5, 0.01, true);
-            ValidateAddData(so5, 0.01, true);
+            string s3 = ValidateAddData("NIBP_Diastolic", so3, 0.01, true);
+
+            string s4 = ValidateAddData("NIBP_Mean", so4, 0.01, true);
+
+            string s5 = ValidateAddData("SpO2", so5, 0.01, true);
 
             double et = (so6 * driSR.basic.co2.amb_press);
-            ValidateAddData(et, 0.00001,true);
-            string s6 = ValidateDataFormatString(et, 0.00001, true);
-            
+            string s6 = ValidateAddData("ET_CO2", et, 0.00001,true);
+
             short so7 = driSR.basic.aa.et;
             short so8 = driSR.basic.aa.fi;
             short so9 = driSR.basic.aa.mac_sum;
             ushort so10 = driSR.basic.aa.hdr.label_info;
 
-            ValidateAddData(so7, 0.01, false);
-            ValidateAddData(so8, 0.01, false);
-            ValidateAddData(so9, 0.01, false);
+            ValidateAddData("AA_ET", so7, 0.01, false);
+            ValidateAddData("AA_FI", so8, 0.01, false);
+            string s9 = ValidateAddData("AA_MAC_SUM", so9, 0.01, false);
 
             string s10 = "";
 
@@ -1194,8 +1133,7 @@ namespace VSCapture
                     break;
             }
 
-            m_strBuilder.Append(s10);
-            m_strBuilder.Append(',');
+            AddDataString("Agent_AA", s10);
 
             double so11 = driSR.basic.o2.fi;
             double so12 = driSR.basic.n2o.fi;
@@ -1223,51 +1161,37 @@ namespace VSCapture
 			double so32 = driSR.basic.flow_vol.rr;
 
 
-            ValidateAddData(so11, 0.01, false);
-            ValidateAddData(so12, 0.01, false);
-            ValidateAddData(so13, 0.01, false);
-            ValidateAddData(so14, 1, false);
-            ValidateAddData(so15, 0.01, false);
-            ValidateAddData(so16, 0.01, false);
+            ValidateAddData("O2_FI", so11, 0.01, false);
+            ValidateAddData("N2O_FI", so12, 0.01, false);
+            ValidateAddData("N2O_ET", so13, 0.01, false);
+            ValidateAddData("CO2_RR", so14, 1, false);
+            string s15 = ValidateAddData("T1_Temp", so15, 0.01, false);
+            string s16 = ValidateAddData("T2_Temp", so16, 0.01, false);
             
             
-            ValidateAddData(so17, 1, true);
-            ValidateAddData(so18, 0.01, true);
-            ValidateAddData(so19, 0.01, true);
-            ValidateAddData(so20, 0.01, true);
-            ValidateAddData(so21, 1, true);
-            ValidateAddData(so22, 0.01, true);
-            ValidateAddData(so23, 0.01, true);
-            ValidateAddData(so24, 0.01, true);
+            ValidateAddData("P1_HR", so17, 1, true);
+            string s18 = ValidateAddData("P1_Systolic", so18, 0.01, true);
+            string s19 = ValidateAddData("P1_Disatolic", so19, 0.01, true);
+            string s20 = ValidateAddData("P1_Mean", so20, 0.01, true);
+            ValidateAddData("P2_HR", so21, 1, true);
+            string s22 = ValidateAddData("P2_Systolic", so22, 0.01, true);
+            string s23 = ValidateAddData("P2_Diastolic", so23, 0.01, true);
+            string s24 = ValidateAddData("P2_Mean", so24, 0.01, true);
                         
             
-            ValidateAddData(so25, 0.01, true);
-            ValidateAddData(so26, 0.01, true);
-            ValidateAddData(so27,0.1, true);
-			ValidateAddData(so28, 0.1, true);
-			ValidateAddData(so29, 0.01, true);
-			ValidateAddData(so30, 0.01, false);
-			ValidateAddData(so31, 0.01, true);
-			ValidateAddData(so32, 1, true);
-
-
-            string s9 = ValidateDataFormatString(so9, 0.01, false);
-            string s15 = ValidateDataFormatString(so15, 0.01, false);
-            string s16 = ValidateDataFormatString(so16, 0.01, false);
-            
-            string s18 = ValidateDataFormatString(so18, 0.01, true);
-            string s19 = ValidateDataFormatString(so19, 0.01, true);
-            string s20 = ValidateDataFormatString(so20, 0.01, true);
-            
-            string s22 = ValidateDataFormatString(so22, 0.01, true);
-            string s23 = ValidateDataFormatString(so23, 0.01, true);
-            string s24 = ValidateDataFormatString(so24, 0.01, true);
+            ValidateAddData("PPeak", so25, 0.01, true);
+            ValidateAddData("PPlat", so26, 0.01, true);
+            ValidateAddData("TV_Exp", so27, 0.1, true);
+			ValidateAddData("TV_Insp", so28, 0.1, true);
+			ValidateAddData("PEEP", so29, 0.01, true);
+			ValidateAddData("MV_Exp", so30, 0.01, false);
+			ValidateAddData("Compliance", so31, 0.01, true);
+			ValidateAddData("RR", so32, 1, true);
 
             Console.WriteLine("ECG HR {0:d}/min NIBP {1:d}/{2:d}({3:d})mmHg SpO2 {4:d}% ETCO2 {5:d}mmHg", s1, s2, s3, s4, s5,s6);
             Console.WriteLine("IBP1 {0:d}/{1:d}({2:d})mmHg IBP2 {3:d}/{4:d}({5:d})mmHg MAC {6} T1 {7}°C T2 {8}°C", s18, s19, s20, s22, s23, s24, s9, s15, s16);
 
-			m_transmissionstart = false;
-        }
+	    }
 
         public void ShowExt1and2SubRecord(dri_phdb driSR)
         {
@@ -1276,15 +1200,12 @@ namespace VSCapture
             short so3 = driSR.ext1.ecg12.stAVL;
 
             string pathcsv = Path.Combine(Directory.GetCurrentDirectory(),"AS3ExportData.csv");
-            
-            ValidateAddData(so1, 0.01,false);
-            string s1 = ValidateDataFormatString(so1, 0.01, false);
-            
-            ValidateAddData(so2, 0.01, false);
-            string s2 = ValidateDataFormatString(so2, 0.01, false);
 
-            ValidateAddData(so3, 0.01, false);
-            string s3 = ValidateDataFormatString(so3, 0.01, false);
+            string s1 = ValidateAddData("ST_II", so1, 0.01,false);
+
+            string s2 = ValidateAddData("ST_V5", so2, 0.01, false);
+
+            string s3 = ValidateAddData("ST_aVL", so3, 0.01, false);
 
             short so4 = driSR.ext2.ent.eeg_ent;
             short so5 = driSR.ext2.ent.emg_ent;
@@ -1294,48 +1215,62 @@ namespace VSCapture
             short so9 = driSR.ext2.eeg_bis.emg_val;
             short so10 = driSR.ext2.eeg_bis.sqi_val;
 
-            ValidateAddData(so4,1,true);
-            ValidateAddData(so5, 1, true);
-            ValidateAddData(so6, 1, true);
-            ValidateAddData(so7, 1, true);
-            ValidateAddData(so8, 1, true);
-            ValidateAddData(so9, 1, true);
-            ValidateAddData(so10, 1, true);
+            ValidateAddData("EEG_Entropy", so4,1,true);
+            ValidateAddData("EMG_Entropy", so5, 1, true);
+            ValidateAddData("BSR_Entropy", so6, 1, true);
+            ValidateAddData("BIS", so7, 1, true);
+            ValidateAddData("BIS_BSR", so8, 1, true);
+            ValidateAddData("BIS_EMG", so9, 1, true);
+            ValidateAddData("BIS_SQI", so10, 1, true);
             
-            ExportToCSVFile(pathcsv);
-
             Console.WriteLine("ST II {0:0.0}mm ST V5 {1:0.0}mm ST aVL {2:0.0}mm", s1, s2, s3);
 
-            //Clear Stringbuilder member last
-            m_strBuilder.Clear();
 
-			m_transmissionstart = false;
         }
 
         
-        public bool ValidateAddData(object value, double decimalshift, bool rounddata)
+        public string ValidateAddData(string physio_id, object value, double decimalshift, bool rounddata)
         {
             int val = Convert.ToInt32(value);
             double dval = (Convert.ToDouble(value, CultureInfo.InvariantCulture))*decimalshift;
             if (rounddata) dval = Math.Round(dval);
 
-            string str = dval.ToString();
+            string valuestr = dval.ToString();
             
 
             if (val < DataConstants.DATA_INVALID_LIMIT)
             {
-                str = "-";
-                m_strBuilder.Append(str);
-                m_strBuilder.Append(',');
-                return false;
+                valuestr = "-";
             }
-            
-            m_strBuilder.Append(str);
-            m_strBuilder.Append(',');
-            return true;
+
+            NumericValResult NumVal = new NumericValResult();
+
+            NumVal.Timestamp = m_strTimestamp;
+            NumVal.PhysioID = physio_id;
+            NumVal.Value = valuestr;
+            NumVal.DeviceID = m_DeviceID;
+
+            m_NumericValList.Add(NumVal);
+            m_NumValHeaders.Add(NumVal.PhysioID);
+
+            return valuestr;
         }
 
-		public bool ValidateAddWaveData(object value, double decimalshift, bool rounddata)
+        public void AddDataString(string physio_id, string valuestr)
+        {
+            NumericValResult NumVal = new NumericValResult();
+
+            NumVal.Timestamp = m_strTimestamp;
+            NumVal.PhysioID = physio_id;
+            NumVal.Value = valuestr;
+            NumVal.DeviceID = m_DeviceID;
+
+            m_NumericValList.Add(NumVal);
+            m_NumValHeaders.Add(NumVal.PhysioID);
+
+        }
+
+        public bool ValidateAddWaveData(object value, double decimalshift, bool rounddata)
 		{
 			int val = Convert.ToInt32(value);
 			double dval = (Convert.ToDouble(value, CultureInfo.InvariantCulture))*decimalshift;
@@ -1357,47 +1292,7 @@ namespace VSCapture
 			return true;
 		}
 
-        public string ValidateDataFormatString(object value, double decimalshift, bool rounddata)
-        {
-            int val = Convert.ToInt32(value);
-            double dval = (Convert.ToDouble(value, CultureInfo.InvariantCulture))*decimalshift;
-            if (rounddata) dval = Math.Round(dval);
-
-            string str = dval.ToString();
-
-
-            if (val < DataConstants.DATA_INVALID_LIMIT)
-            {
-                str = "-";
-            }
-
-            return str;
-        }
-
-		public void ExportToCSVFile(string _FileName)
-        {
-            try
-            {
-                // Open file for reading. 
-                StreamWriter wrStream = new StreamWriter(_FileName, true, Encoding.UTF8);
-
-                wrStream.WriteLine(m_strBuilder);
-                m_strBuilder.Clear();
-                
-                // close file stream. 
-                wrStream.Close();
-                
-            }
-
-            catch (Exception _Exception)
-            {
-                // Error. 
-                Console.WriteLine("Exception caught in process: {0}", _Exception.ToString());
-            }
-            
-        }
-
-		public void ExportToWaveCSVFile(string _FileName)
+        public void ExportToWaveCSVFile(string _FileName)
 		{
 			try
 			{
@@ -1420,8 +1315,184 @@ namespace VSCapture
 
 		}
 
-		
-		public bool OSIsUnix()
+        public void WriteNumericHeadersList()
+        {
+            if (m_NumericValList.Count != 0 && m_transmissionstart)
+            {
+                string pathcsv = Path.Combine(Directory.GetCurrentDirectory(), "AS3DataExport.csv");
+
+                m_strbuildheaders.Append("Time");
+                m_strbuildheaders.Append(',');
+
+                foreach (NumericValResult NumValResult in m_NumericValList)
+                {
+                    m_strbuildheaders.Append(NumValResult.PhysioID);
+                    m_strbuildheaders.Append(',');
+
+                }
+
+                m_strbuildheaders.Remove(m_strbuildheaders.Length - 1, 1);
+                m_strbuildheaders.Replace(",,", ",");
+                m_strbuildheaders.AppendLine();
+                ExportNumValListToCSVFile(pathcsv, m_strbuildheaders);
+
+                m_strbuildheaders.Clear();
+                m_NumValHeaders.RemoveRange(0, m_NumValHeaders.Count);
+                m_transmissionstart = false;
+
+            }
+        }
+
+
+        public void SaveNumericValueListRows()
+        {
+            if (m_NumericValList.Count != 0)
+            {
+                WriteNumericHeadersList();
+                string pathcsv = Path.Combine(Directory.GetCurrentDirectory(), "AS3DataExport.csv");
+
+                m_strbuildvalues.Append(m_NumericValList.ElementAt(0).Timestamp);
+                m_strbuildvalues.Append(',');
+
+                foreach (NumericValResult NumValResult in m_NumericValList)
+                {
+                    m_strbuildvalues.Append(NumValResult.Value);
+                    m_strbuildvalues.Append(',');
+
+                }
+
+                m_strbuildvalues.Remove(m_strbuildvalues.Length - 1, 1);
+                m_strbuildvalues.Replace(",,", ",");
+                m_strbuildvalues.AppendLine();
+
+                ExportNumValListToCSVFile(pathcsv, m_strbuildvalues);
+                m_strbuildvalues.Clear();
+                m_NumericValList.RemoveRange(0, m_NumericValList.Count);
+            }
+        }
+
+
+        public void ExportNumValListToCSVFile(string _FileName, StringBuilder strbuildNumVal)
+        {
+            try
+            {
+                // Open file for reading. 
+                StreamWriter wrStream = new StreamWriter(_FileName, true, Encoding.UTF8);
+
+                wrStream.Write(strbuildNumVal);
+                strbuildNumVal.Clear();
+
+                // close file stream. 
+                wrStream.Close();
+
+            }
+
+            catch (Exception _Exception)
+            {
+                // Error. 
+                Console.WriteLine("Exception caught in process: {0}", _Exception.ToString());
+            }
+
+        }
+
+        public bool ByteArrayToFile(string _FileName, byte[] _ByteArray, int nWriteLength)
+        {
+            try
+            {
+                // Open file for reading. 
+                FileStream _FileStream = new FileStream(_FileName, FileMode.Append, FileAccess.Write);
+
+                // Writes a block of bytes to this stream using data from a byte array
+                _FileStream.Write(_ByteArray, 0, nWriteLength);
+
+                // close file stream. 
+                _FileStream.Close();
+
+                /* // Open file for reading. 
+                 StreamWriter wrStream = new StreamWriter(_FileName, true, Encoding.UTF8);
+
+                 String datastr = BitConverter.ToString(_ByteArray);
+
+                 wrStream.WriteLine(datastr);
+
+                 // close file stream. 
+                 wrStream.Close();*/
+
+
+                return true;
+            }
+
+            catch (Exception _Exception)
+            {
+                // Error. 
+                Console.WriteLine("Exception caught in process: {0}", _Exception.ToString());
+            }
+            // error occured, return false. 
+            return false;
+        }
+
+        public void ExportNumValListToJSON()
+        {
+            DataContractJsonSerializer jsonSerializer = new DataContractJsonSerializer(typeof(List<NumericValResult>));
+
+            MemoryStream memstream = new MemoryStream();
+            jsonSerializer.WriteObject(memstream, m_NumericValList);
+
+            string serializedJSON = Encoding.UTF8.GetString(memstream.ToArray());
+            memstream.Close();
+
+            try
+            {
+                // Open file for reading. 
+                //StreamWriter wrStream = new StreamWriter(pathjson, true, Encoding.UTF8);
+
+                //wrStream.Write(serializedJSON);
+
+                //wrStream.Close();
+
+                PostJSONDataToServer(serializedJSON);
+
+            }
+
+            catch (Exception _Exception)
+            {
+                // Error. 
+                Console.WriteLine("Exception caught in process: {0}", _Exception.ToString());
+            }
+        }
+
+        public void PostJSONDataToServer(string postData)
+        {
+            HttpWebRequest request = (HttpWebRequest)WebRequest.Create(m_jsonposturl);
+            request.Method = "POST";
+
+            byte[] byteArray = Encoding.UTF8.GetBytes(postData);
+            request.ContentType = "application/json";
+            request.ContentLength = byteArray.Length;
+
+            using (Stream dataStream = request.GetRequestStream())
+            {
+                dataStream.Write(byteArray, 0, byteArray.Length);
+                dataStream.Close();
+            }
+
+            // Get the response.  
+            HttpWebResponse response = (HttpWebResponse)request.GetResponse();
+            Console.WriteLine(response.StatusDescription);
+
+            using (Stream dataStream = response.GetResponseStream())
+            {
+                StreamReader reader = new StreamReader(dataStream);
+                string responseFromServer = reader.ReadToEnd();
+                Console.WriteLine(responseFromServer);
+                reader.Close();
+                dataStream.Close();
+            }
+
+            response.Close();
+        }
+
+        public bool OSIsUnix()
 		{
 			int p = (int) Environment.OSVersion.Platform;
         	if ((p == 4) || (p == 6) || (p == 128)) return true;

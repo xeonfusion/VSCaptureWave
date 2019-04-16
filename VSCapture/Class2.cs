@@ -1,6 +1,6 @@
 ﻿/*
- * This file is part of VitalSignsCaptureWave v1.006.
- * Copyright (C) 2015-18 John George K., xeonfusion@users.sourceforge.net
+ * This file is part of VitalSignsCaptureWave v1.007.
+ * Copyright (C) 2015-19 John George K., xeonfusion@users.sourceforge.net
  * Portions of code (C) 1998 Stefan Lombaard
 
     VitalSignsCapture is free software: you can redistribute it and/or modify

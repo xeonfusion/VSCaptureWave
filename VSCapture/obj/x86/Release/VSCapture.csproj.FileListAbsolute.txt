@@ -1,0 +1,12 @@
+C:/Users/John/Documents/Datex connect/Wavecapture/VSCaptureWavev1.004Source/VSCaptureWavev1.004Source/VSCaptureWave/VSCapture/bin/Release/VSCapture.exe
+C:/Users/John/Documents/Datex connect/Wavecapture/VSCaptureWavev1.004Source/VSCaptureWavev1.004Source/VSCaptureWave/VSCapture/bin/Release/gtk-sharp.dll
+C:/Users/John/Documents/Datex connect/Wavecapture/VSCaptureWavev1.004Source/VSCaptureWavev1.004Source/VSCaptureWave/VSCapture/bin/Release/glib-sharp.dll
+C:/Users/John/Documents/Datex connect/Wavecapture/VSCaptureWavev1.004Source/VSCaptureWavev1.004Source/VSCaptureWave/VSCapture/bin/Release/atk-sharp.dll
+C:/Users/John/Documents/Datex connect/Wavecapture/VSCaptureWavev1.004Source/VSCaptureWavev1.004Source/VSCaptureWave/VSCapture/bin/Release/gdk-sharp.dll
+C:/Users/John/Documents/Datex connect/Wavecapture/VSCaptureWavev1.004Source/VSCaptureWavev1.004Source/VSCaptureWave/VSCapture/bin/Release/pango-sharp.dll
+C:/Users/John/Documents/Datex connect/Wavecapture/VSCaptureWavev1.004Source/VSCaptureWavev1.004Source/VSCaptureWave/VSCapture/bin/Release/glib-sharp.pdb
+C:/Users/John/Documents/Datex connect/Wavecapture/VSCaptureWavev1.004Source/VSCaptureWavev1.004Source/VSCaptureWave/VSCapture/bin/Release/atk-sharp.pdb
+C:/Users/John/Documents/Datex connect/Wavecapture/VSCaptureWavev1.004Source/VSCaptureWavev1.004Source/VSCaptureWave/VSCapture/bin/Release/gdk-sharp.pdb
+C:/Users/John/Documents/Datex connect/Wavecapture/VSCaptureWavev1.004Source/VSCaptureWavev1.004Source/VSCaptureWave/VSCapture/bin/Release/pango-sharp.pdb
+C:/Users/John/Documents/Datex connect/Wavecapture/VSCaptureWavev1.004Source/VSCaptureWavev1.004Source/VSCaptureWave/VSCapture/obj/x86/Release/VSCapture.csprojResolveAssemblyReference.cache
+C:/Users/John/Documents/Datex connect/Wavecapture/VSCaptureWavev1.004Source/VSCaptureWavev1.004Source/VSCaptureWave/VSCapture/obj/x86/Release/VSCapture.exe

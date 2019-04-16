@@ -1,6 +1,6 @@
 /*
- * This file is part of VitalSignsCaptureWave v1.006.
- * Copyright (C) 2015-18 John George K., xeonfusion@users.sourceforge.net
+ * This file is part of VitalSignsCaptureWave v1.007.
+ * Copyright (C) 2015-19 John George K., xeonfusion@users.sourceforge.net
 
     VitalSignsCapture is free software: you can redistribute it and/or modify
     it under the terms of the GNU Lesser General Public License as published by
@@ -30,10 +30,12 @@ namespace VSCapture
     class Program
     {
         static EventHandler dataEvent;
-		
+        public static string DeviceID;
+        public static string JSONPostUrl;
+
         static void Main(string[] args)
         {
-            Console.WriteLine("VitalSignsCaptureWave v1.006 (C)2018 John George K.");
+            Console.WriteLine("VitalSignsCaptureWave v1.007 (C)2019 John George K.");
             Console.WriteLine("For command line usage: -help");
             Console.WriteLine();
 
@@ -52,6 +54,9 @@ namespace VSCapture
                 Console.WriteLine("-port <Set serial port name>");
                 Console.WriteLine("-interval <Set numeric transmission interval>");
                 Console.WriteLine("-waveset <Set waveform transmission set option>");
+                Console.WriteLine("-export <Set data export CSV or JSON option>");
+                Console.WriteLine("-devid <Set device ID for JSON export>");
+                Console.WriteLine("-url <Set JSON export url>");
                 Console.WriteLine();
                 return;
             }
@@ -121,7 +126,59 @@ namespace VSCapture
                     short nInterval = 5;
                     if (sInterval != "") nInterval = Convert.ToInt16(sInterval);
 
-					if(parser.Arguments.ContainsKey("waveset"))
+                    string sDataExportset;
+                    if (parser.Arguments.ContainsKey("export"))
+                    {
+                        sDataExportset = parser.Arguments["export"][0];
+                    }
+                    else
+                    {
+                        Console.WriteLine();
+                        Console.WriteLine("Data export options:");
+                        Console.WriteLine("1. Export as CSV files");
+                        Console.WriteLine("2. Export as CSV files and JSON to URL");
+                        Console.WriteLine();
+                        Console.Write("Choose data export option (1-2):");
+
+                        sDataExportset = Console.ReadLine();
+
+                    }
+
+                    int nDataExportset = 1;
+                    if (sDataExportset != "") nDataExportset = Convert.ToInt32(sDataExportset);
+
+                    if (nDataExportset == 2)
+                    {
+                        if (parser.Arguments.ContainsKey("devid"))
+                        {
+                            DeviceID = parser.Arguments["devid"][0];
+                        }
+                        else
+                        {
+                            Console.Write("Enter Device ID/Name:");
+                            DeviceID = Console.ReadLine();
+
+                        }
+
+                        if (parser.Arguments.ContainsKey("url"))
+                        {
+                            JSONPostUrl = parser.Arguments["url"][0];
+                        }
+                        else
+                        {
+                            Console.Write("Enter JSON Data Export URL(http://):");
+                            JSONPostUrl = Console.ReadLine();
+
+                        }
+                    }
+
+                    _serialPort.m_DeviceID = DeviceID;
+                    _serialPort.m_jsonposturl = JSONPostUrl;
+
+                    if (nDataExportset > 0 && nDataExportset < 3) _serialPort.m_dataexportset = nDataExportset;
+
+
+                    if (parser.Arguments.ContainsKey("waveset"))
                     {
                         sWaveformSet = parser.Arguments["waveset"][0];
                     }
@@ -171,18 +228,6 @@ namespace VSCapture
 					//Sample rate for ECG is 300, INVP 100, PLETH 100, respiratory 25 each
 					byte [] WaveTrtype = new byte[8];
 
-					/*WaveTrtype[0] = DataConstants.DRI_WF_ECG1;
-                    //WaveTrtype[1] = DataConstants.DRI_WF_INVP1;
-                    WaveTrtype[1] = DataConstants.DRI_WF_VOL;
-					//WaveTrtype[2] = DataConstants.DRI_WF_INVP2;
-					WaveTrtype[2] = DataConstants.DRI_WF_PLETH;
-					WaveTrtype[3] = DataConstants.DRI_WF_CO2;
-					WaveTrtype[4] = DataConstants.DRI_WF_RESP;
-					WaveTrtype[5] = DataConstants.DRI_WF_AWP;
-                    //WaveTrtype[6] = DataConstants.DRI_WF_AA;
-                    WaveTrtype[6] = DataConstants.DRI_WF_FLOW;
-					WaveTrtype[7] = DataConstants.DRI_EOL_SUBR_LIST;*/
-
 					CreateWaveformSet (nWaveformSet, WaveTrtype);
 
 					if (nWaveformSet !=0)
@@ -196,7 +241,6 @@ namespace VSCapture
 						_serialPort.RequestMultipleWaveTransfer ( WaveTrtype, DataConstants.WF_REQ_CONT_START, DataConstants.DRI_LEVEL_2001);
 					}
                 }
-                //WaitForSeconds(5);
 
                 Console.WriteLine("Press Escape button to Stop");
 				
