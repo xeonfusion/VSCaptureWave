@@ -1,5 +1,5 @@
 /*
- * This file is part of VitalSignsCaptureWave v1.007.
+ * This file is part of VitalSignsCaptureWave v1.008.
  * Copyright (C) 2015-19 John George K., xeonfusion@users.sourceforge.net
 
     VitalSignsCapture is free software: you can redistribute it and/or modify
@@ -35,7 +35,7 @@ namespace VSCapture
 
         static void Main(string[] args)
         {
-            Console.WriteLine("VitalSignsCaptureWave v1.007 (C)2019 John George K.");
+            Console.WriteLine("VitalSignsCaptureWave v1.008 (C)2019 John George K.");
             Console.WriteLine("For command line usage: -help");
             Console.WriteLine();
 

@@ -1,5 +1,5 @@
 ﻿/*
- * This file is part of VitalSignsCaptureWave v1.007.
+ * This file is part of VitalSignsCaptureWave v1.008.
  * Copyright (C) 2015-19 John George K., xeonfusion@users.sourceforge.net
 
     VitalSignsCapture is free software: you can redistribute it and/or modify
@@ -27,7 +27,7 @@ using System.Threading;
 using System.Globalization;
 using System.Runtime.Serialization.Json;
 using System.Net;
-
+using System.Threading.Tasks;
 
 namespace VSCapture
 {
@@ -48,36 +48,19 @@ namespace VSCapture
         private bool m_storeend = false;
         private bool m_bitshiftnext = false;
         private List<byte> m_bList = new List<byte>();
-        private StringBuilder m_strBuilderWave = new StringBuilder();
-
+       
         public List<NumericValResult> m_NumericValList = new List<NumericValResult>();
         public List<string> m_NumValHeaders = new List<string>();
         public StringBuilder m_strbuildvalues = new StringBuilder();
         public StringBuilder m_strbuildheaders = new StringBuilder();
+
+        public List<WaveValResult> m_WaveValResultList = new List<WaveValResult>();
+        public StringBuilder m_strbuildwavevalues = new StringBuilder();
+
         public string m_strTimestamp;
         public int m_dataexportset = 1;
-
-        private bool m_wftransmissionstart = true;
-		private bool m_transmissionstart = true;
-
-		private List<short> m_shECGList = new List<short>();
-		private List<short> m_shECG2List = new List<short>();
-		private List<short> m_shINVPList = new List<short>();
-		private List<short> m_shINVP2List = new List<short>();
-		private List<short> m_shPLETHList = new List<short>();
-		private List<short> m_shCO2List = new List<short>();
-		private List<short> m_shO2List = new List<short>();
-		private List<short> m_shRESPList = new List<short>();
-		private List<short> m_shAAList = new List<short>();
-		private List<short> m_shAWPList = new List<short>();
-		private List<short> m_shFLOWList = new List<short>();
-        private List<short> m_shVOLList = new List<short>();
-
-		private List<short> m_shEEG1List = new List<short>();
-		private List<short> m_shEEG2List = new List<short>();
-		private List<short> m_shEEG3List = new List<short>();
-		private List<short> m_shEEG4List = new List<short>();
-
+        private bool m_transmissionstart = true;
+        
         public string m_DeviceID;
         public string m_jsonposturl;
 
@@ -88,6 +71,16 @@ namespace VSCapture
             public string Value;
             public string DeviceID;
         }
+
+        public class WaveValResult
+        {
+            public string Timestamp;
+            public string PhysioID;
+            public short[] Value;
+            public string DeviceID;
+            public double Unitshift;
+        }
+
 
         //Create a singleton serialport subclass
         private static volatile DSerialPort DPort = null;
@@ -250,12 +243,11 @@ namespace VSCapture
                     {
                         CreateRecordList();
                         ReadSubRecords();
-						//ReadWaveSubRecords(DataConstants.DRI_WF_INVP1);
-						ReadMultipleWaveSubRecords();
-                       
+                        ReadMultipleWaveSubRecords();
+                        
                         FrameList.RemoveRange(0, FrameList.Count);
                         RecordList.RemoveRange(0, RecordList.Count);
-                        //m_bList.RemoveRange(0, m_bList.Count);
+                        
                     }
                     
                 }
@@ -455,8 +447,7 @@ namespace VSCapture
 			}
 
 
-			m_wftransmissionstart = true;
-        }
+	    }
 
 		public void RequestMultipleWaveTransfer(byte[] TrWavetype, short TrSignaltype, byte DRIlevel)
 		{
@@ -505,7 +496,6 @@ namespace VSCapture
 				}
 			}
 
-			m_wftransmissionstart = true;
 		}
 		
 		public void StopwaveTransfer()
@@ -597,87 +587,15 @@ namespace VSCapture
 
 
         }
-
-		public void ReadWaveSubRecords(byte bWaveformType)
-		{
-			foreach(datex_record_type dx_record in RecordList)
-			{
-
-                short dxrecordmaintype = dx_record.hdr.r_maintype;
-                
-                if (dxrecordmaintype == DataConstants.DRI_MT_WAVE)
-                {
-
-
-                    short[] sroffArray = { dx_record.hdr.sr_offset1, dx_record.hdr.sr_offset2, dx_record.hdr.sr_offset3, dx_record.hdr.sr_offset4, dx_record.hdr.sr_offset5, dx_record.hdr.sr_offset6, dx_record.hdr.sr_offset7, dx_record.hdr.sr_offset8 };
-                    byte[] srtypeArray = { dx_record.hdr.sr_type1, dx_record.hdr.sr_type2, dx_record.hdr.sr_type3, dx_record.hdr.sr_type4, dx_record.hdr.sr_type5, dx_record.hdr.sr_type6, dx_record.hdr.sr_type7, dx_record.hdr.sr_type8 };
-
-                    uint unixtime = dx_record.hdr.r_time;
-
-
-                    // Unix timestamp is seconds past epoch 
-                    DateTime dtDateTime = new DateTime(1970, 1, 1, 0, 0, 0, 0);
-                    //dtDateTime = dtDateTime.AddSeconds(unixtime).ToLocalTime();
-                    dtDateTime = dtDateTime.AddSeconds(unixtime);
-
-                    string dtime = dtDateTime.ToLongTimeString();
-
-                    WriteWaveformHeaders(bWaveformType);
-                    m_strBuilderWave.AppendLine();
-
-
-                    //Read upto 8 subrecords
-                    for (int i = 0; i < 8 && (srtypeArray[i] != DataConstants.DRI_EOL_SUBR_LIST); i++)
-                    {
-
-                        //if (srtypeArray[i] == DataConstants.DRI_WF_INVP1 && srtypeArray[i] !=DataConstants.DRI_EOL_SUBR_LIST)
-                        if (srtypeArray[i] == bWaveformType && srtypeArray[i] != DataConstants.DRI_EOL_SUBR_LIST)
-                        {
-                            int offset = (int)sroffArray[i];
-                            int nextoffset = 0;
-                            //if (i==7) nextoffset = (1450 - offset);
-                            if (i == 7) nextoffset = 1450;
-                            else nextoffset = (int)sroffArray[i + 1];
-                            //int nextoffset = (int)sroffArray [i + 1];
-
-                            if (nextoffset <= offset || nextoffset > 1450) break;
-
-                            int buflen = (nextoffset - offset - 6);
-
-                            byte[] buffer = new byte[buflen];
-
-                            for (int j = 0; j < buflen; j++)
-                            {
-                                buffer[j] = dx_record.data[6 + j + offset];
-                            }
-
-                            //Convert Byte array to 16 bit short values
-                            for (int n = 0; n < buffer.Length; n += 2)
-                            {
-                                m_strBuilderWave.Append(dtime);
-                                m_strBuilderWave.Append(',');
-
-                                short wavedata = BitConverter.ToInt16(buffer, n);
-                                ShowWaveSubRecordData(wavedata);
-                            }
-
-
-                        }
-                    }
-
-                }
-			}
-
-
-		}
-
-		public void ReadMultipleWaveSubRecords()
-		{
-			foreach(datex_record_type dx_record in RecordList)
-			{
+        
+        public void ReadMultipleWaveSubRecords()
+        {
+            
+            foreach (datex_record_type dx_record in RecordList)
+            {
 
                 short dxrecordmaintype = dx_record.hdr.r_maintype;
-                
+
                 if (dxrecordmaintype == DataConstants.DRI_MT_WAVE)
                 {
 
@@ -691,7 +609,6 @@ namespace VSCapture
                     dtDateTime = dtDateTime.AddSeconds(unixtime);
 
                     string dtime = dtDateTime.ToLongTimeString();
-
 
                     //Read upto 8 subrecords
                     for (int i = 0; i < 8 && (srtypeArray[i] != DataConstants.DRI_EOL_SUBR_LIST); i++)
@@ -700,12 +617,21 @@ namespace VSCapture
 
                         int offset = (int)sroffArray[i];
                         int nextoffset = 0;
-                        //if (i==7) nextoffset = (1450 - offset);
+
                         if (i == 7) nextoffset = 1450;
                         else nextoffset = (int)sroffArray[i + 1];
-                        //int nextoffset = (int)sroffArray [i + 1];
-
+                        
                         if (nextoffset <= offset || nextoffset > 1450) break;
+                        if (nextoffset == DataConstants.DRI_EOL_SUBR_LIST)
+                        {
+                            //read subrecord length from header to get nextoffset
+                            byte[] srsamplelenbytes = new byte[2];
+                            srsamplelenbytes[0] = dx_record.data[offset];
+                            srsamplelenbytes[1] = dx_record.data[offset+1];
+                            int srheaderlen = 6;
+                            int subrecordlen = srheaderlen + (BitConverter.ToInt16(srsamplelenbytes,0))*2;
+                            nextoffset = offset + subrecordlen;
+                        }
 
                         int buflen = (nextoffset - offset - 6);
 
@@ -716,364 +642,66 @@ namespace VSCapture
                             buffer[j] = dx_record.data[6 + j + offset];
                         }
 
+                        WaveValResult WaveVal = new WaveValResult();
+                        WaveVal.Timestamp = dtime;
+                        WaveVal.DeviceID = m_DeviceID;
+                        WaveVal.PhysioID = Enum.GetName(typeof(DataConstants.WavesIDLabels), srtypeArray[i]);
+                        WaveVal.Unitshift = GetWaveUnitShift(WaveVal.PhysioID);
+
+                        List<short> WaveValList = new List<short>();
+        
                         //Convert Byte array to 16 bit short values
                         for (int n = 0; n < buffer.Length; n += 2)
                         {
 
                             short wavedata = BitConverter.ToInt16(buffer, n);
-                            //ShowWaveSubRecordData (wavedata);			
-                            AddToWaveDataList(srtypeArray[i], wavedata);
+                            WaveValList.Add(wavedata);
 
                         }
 
+                        WaveVal.Value = new short[WaveValList.Count];
+                        short[] wavedataarray = WaveValList.ToArray();
+                        Array.Copy(wavedataarray, WaveVal.Value, WaveValList.Count);
 
+                        m_WaveValResultList.Add(WaveVal);
                     }
-
-                    ShowMultipleWaveSubRecordData(dtime);
+                    
                 }
-			}
-
-
-		}
-
-		public void WriteWaveformHeaders(byte bWaveformtype)
-		{
-			if (m_wftransmissionstart)
-			{
-				//Write headers
-				m_strBuilderWave.AppendLine("VitalSignsCaptureWave v1.007");
-				m_strBuilderWave.AppendLine("Datex AS3 Monitor");
-
-				m_strBuilderWave.Append ("Time");
-				m_strBuilderWave.Append (',');
-
-
-				switch (bWaveformtype)
-				{
-				case DataConstants.DRI_WF_ECG1:
-					m_strBuilderWave.Append ("ECG1");
-					m_strBuilderWave.Append (',');
-					break;
-				case DataConstants.DRI_WF_ECG2:
-					m_strBuilderWave.Append ("ECG2");
-					m_strBuilderWave.Append (',');
-					break;
-				case DataConstants.DRI_WF_INVP1:
-					m_strBuilderWave.Append ("INVP1");
-					m_strBuilderWave.Append (',');
-					break;
-				case DataConstants.DRI_WF_INVP2:
-					m_strBuilderWave.Append ("INVP2");
-					m_strBuilderWave.Append (',');
-					break;
-				case DataConstants.DRI_WF_PLETH:
-					m_strBuilderWave.Append ("PLETH");
-					m_strBuilderWave.Append (',');
-					break;
-				case DataConstants.DRI_WF_CO2:
-					m_strBuilderWave.Append ("CO2");
-					m_strBuilderWave.Append (',');
-					break;
-				case DataConstants.DRI_WF_O2:
-					m_strBuilderWave.Append ("O2");
-					m_strBuilderWave.Append (',');
-					break;
-				case DataConstants.DRI_WF_RESP:
-					m_strBuilderWave.Append ("RESP");
-					m_strBuilderWave.Append (',');
-					break;
-				case DataConstants.DRI_WF_AA:
-					m_strBuilderWave.Append ("AA");
-					m_strBuilderWave.Append (',');
-					break;
-				case DataConstants.DRI_WF_AWP:
-					m_strBuilderWave.Append ("AWP");
-					m_strBuilderWave.Append (',');
-					break;
-				case DataConstants.DRI_WF_FLOW:
-					m_strBuilderWave.Append ("FLOW");
-					m_strBuilderWave.Append (',');
-					break;
-                case DataConstants.DRI_WF_VOL:
-					m_strBuilderWave.Append("VOL");
-					m_strBuilderWave.Append(',');
-                    break;
-				case DataConstants.DRI_WF_EEG1: 
-					m_strBuilderWave.Append ("EEG1");
-					m_strBuilderWave.Append (',');
-					break;
-				case DataConstants.DRI_WF_EEG2: 
-					m_strBuilderWave.Append ("EEG2");
-					m_strBuilderWave.Append (',');
-					break;
-				case DataConstants.DRI_WF_EEG3: 
-					m_strBuilderWave.Append ("EEG3");
-					m_strBuilderWave.Append (',');
-					break;
-				case DataConstants.DRI_WF_EEG4: 
-					m_strBuilderWave.Append ("EEG4");
-					m_strBuilderWave.Append (',');
-					break;
-
-
-                }
-
-				m_strBuilderWave.AppendLine ();
-				//m_wftransmissionstart = false;
-			}
-		}
-
-		public void AddToWaveDataList(byte WaveDataType, short WaveData)
-		{
-		
-			switch (WaveDataType) {
-			case DataConstants.DRI_WF_ECG1:
-				m_shECGList.Add (WaveData);
-				break;
-			case DataConstants.DRI_WF_ECG2:
-				m_shECG2List.Add (WaveData);
-				break;
-			case DataConstants.DRI_WF_INVP1:
-				m_shINVPList.Add (WaveData);
-				break;
-			case DataConstants.DRI_WF_INVP2:
-				m_shINVP2List.Add (WaveData);
-				break;
-			case DataConstants.DRI_WF_PLETH:
-				m_shPLETHList.Add (WaveData);
-				break;
-			case DataConstants.DRI_WF_CO2:
-				m_shCO2List.Add (WaveData);
-				break;
-			case DataConstants.DRI_WF_O2:
-				m_shO2List.Add (WaveData);
-				break;
-			case DataConstants.DRI_WF_RESP:
-				m_shRESPList.Add (WaveData);
-				break;
-			case DataConstants.DRI_WF_AA:
-				m_shAAList.Add (WaveData);
-				break;
-			case DataConstants.DRI_WF_AWP:
-				m_shAWPList.Add (WaveData);
-				break;
-			case DataConstants.DRI_WF_FLOW:
-				m_shFLOWList.Add (WaveData);
-				break;
-            case DataConstants.DRI_WF_VOL:
-                m_shVOLList.Add(WaveData);
-                break;
-			case DataConstants.DRI_WF_EEG1:
-				m_shEEG1List.Add (WaveData);
-				break;
-			case DataConstants.DRI_WF_EEG2:
-				m_shEEG2List.Add (WaveData);
-				break;
-			case DataConstants.DRI_WF_EEG3:
-				m_shEEG3List.Add (WaveData);
-				break;
-			case DataConstants.DRI_WF_EEG4:
-				m_shEEG4List.Add (WaveData);
-				break;
-
             }
-		}
 
-		public void SaveWaveDataLists(string WaveName, short WaveValue, double decimalshift)
-		{
-			string s1 = WaveValue.ToString ();
-			ValidateAddWaveData (s1, decimalshift, false);
+            ExportWaveToCSV();
 
-			string filename = string.Format("AS3ExportData{0}.csv", WaveName);
-			string pathcsv = Path.Combine(Directory.GetCurrentDirectory(), filename);
+        }
 
-			ExportToWaveCSVFile(pathcsv);
+        public double GetWaveUnitShift(string physioID)
+        {
+            double decimalshift = 1;
 
-			m_strBuilderWave.Clear();
+            if (physioID.Contains("ECG") == true)
+                return (decimalshift = 0.01);
+            if (physioID.Contains("INVP") == true)
+                return (decimalshift = 0.01);
+            if (physioID.Contains("PLETH") == true)
+                return (decimalshift = 0.01);
+            if (physioID.Contains("CO2") == true)
+                return (decimalshift = 0.01);
+            if (physioID.Contains("O2") == true)
+                return (decimalshift = 0.01);
+            if (physioID.Contains("RESP") == true)
+               return  (decimalshift = 0.01);
+            if (physioID.Contains("AA") == true)
+                return (decimalshift = 0.01);
+            if (physioID.Contains("FLOW") == true)
+                return (decimalshift = 0.01);
+            if (physioID.Contains("AWP") == true)
+                return (decimalshift = 0.1);
+            if (physioID.Contains("VOL") == true)
+                return (decimalshift = -1);
+            if (physioID.Contains("EEG") == true)
+                return (decimalshift = 1);
+            else return decimalshift;
 
-
-		}
-
-		public void ShowMultipleWaveSubRecordData(string dtime)
-		{
-			if(m_shECGList.Count != 0) WriteWaveformHeaders (DataConstants.DRI_WF_ECG1);
-			foreach (short WaveValue in m_shECGList)
-			{
-				m_strBuilderWave.Append(dtime);
-				m_strBuilderWave.Append(',');
-				SaveWaveDataLists ("ECG", WaveValue, 0.01);
-
-			}
-			m_shECGList.Clear ();
-
-			if(m_shECG2List.Count != 0) WriteWaveformHeaders (DataConstants.DRI_WF_ECG2);
-			foreach (short WaveValue in m_shECG2List)
-			{
-				m_strBuilderWave.Append(dtime);
-				m_strBuilderWave.Append(',');
-				SaveWaveDataLists ("ECG2", WaveValue, 0.01);
-
-			}
-			m_shECG2List.Clear ();
-
-			if(m_shINVPList.Count != 0) WriteWaveformHeaders (DataConstants.DRI_WF_INVP1);
-			foreach (short WaveValue in m_shINVPList)
-			{
-				m_strBuilderWave.Append(dtime);
-				m_strBuilderWave.Append(',');
-				SaveWaveDataLists ("INVP", WaveValue, 0.01);
-			}
-			m_shINVPList.Clear ();
-
-			if(m_shINVP2List.Count != 0) WriteWaveformHeaders (DataConstants.DRI_WF_INVP2);
-			foreach (short WaveValue in m_shINVP2List)
-			{
-				m_strBuilderWave.Append(dtime);
-				m_strBuilderWave.Append(',');
-				SaveWaveDataLists ("INVP2", WaveValue, 0.01);
-			}
-			m_shINVP2List.Clear ();
-
-			if(m_shPLETHList.Count != 0) WriteWaveformHeaders (DataConstants.DRI_WF_PLETH);
-			foreach (short WaveValue in m_shPLETHList)
-			{
-				m_strBuilderWave.Append(dtime);
-				m_strBuilderWave.Append(',');
-				SaveWaveDataLists ("PLETH", WaveValue, 0.01);
-
-			}
-			m_shPLETHList.Clear ();
-
-			if(m_shCO2List.Count != 0) WriteWaveformHeaders (DataConstants.DRI_WF_CO2);
-			foreach (short WaveValue in m_shCO2List)
-			{
-				m_strBuilderWave.Append(dtime);
-				m_strBuilderWave.Append(',');
-				SaveWaveDataLists ("CO2", WaveValue, 0.01);
-
-			}
-			m_shCO2List.Clear ();
-
-			if(m_shO2List.Count != 0) WriteWaveformHeaders (DataConstants.DRI_WF_O2);
-			foreach (short WaveValue in m_shO2List)
-			{
-				m_strBuilderWave.Append(dtime);
-				m_strBuilderWave.Append(',');
-				SaveWaveDataLists ("O2", WaveValue, 0.01);
-
-			}
-			m_shO2List.Clear ();
-
-			if(m_shRESPList.Count != 0) WriteWaveformHeaders (DataConstants.DRI_WF_RESP);
-			foreach (short WaveValue in m_shRESPList)
-			{
-				m_strBuilderWave.Append(dtime);
-				m_strBuilderWave.Append(',');
-				SaveWaveDataLists ("RESP", WaveValue, 0.01);
-
-			}
-			m_shRESPList.Clear ();
-
-			if(m_shAAList.Count != 0) WriteWaveformHeaders (DataConstants.DRI_WF_AA);
-			foreach (short WaveValue in m_shAAList)
-			{
-				m_strBuilderWave.Append(dtime);
-				m_strBuilderWave.Append(',');
-				SaveWaveDataLists ("AA", WaveValue, 0.01);
-
-			}
-			m_shAAList.Clear ();
-
-			if(m_shAWPList.Count != 0) WriteWaveformHeaders (DataConstants.DRI_WF_AWP);
-			foreach (short WaveValue in m_shAWPList)
-			{
-				m_strBuilderWave.Append(dtime);
-				m_strBuilderWave.Append(',');
-				SaveWaveDataLists ("AWP", WaveValue, 0.1);
-
-			}
-			m_shAWPList.Clear ();
-
-			if(m_shFLOWList.Count != 0) WriteWaveformHeaders (DataConstants.DRI_WF_FLOW);
-			foreach (short WaveValue in m_shFLOWList)
-			{
-				m_strBuilderWave.Append(dtime);
-				m_strBuilderWave.Append(',');
-				SaveWaveDataLists ("FLOW", WaveValue, 0.01);
-
-			}
-			m_shFLOWList.Clear ();
-
-            if (m_shVOLList.Count != 0) WriteWaveformHeaders(DataConstants.DRI_WF_VOL);
-            foreach (short WaveValue in m_shVOLList)
-            {
-				m_strBuilderWave.Append(dtime);
-				m_strBuilderWave.Append(',');
-                SaveWaveDataLists("VOL", WaveValue, -1);
-
-            }
-            m_shVOLList.Clear();
-
-			if(m_shEEG1List.Count != 0) WriteWaveformHeaders (DataConstants.DRI_WF_EEG1);
-			foreach (short WaveValue in m_shEEG1List)
-			{
-				m_strBuilderWave.Append(dtime);
-				m_strBuilderWave.Append(',');
-				SaveWaveDataLists ("EEG1", WaveValue, 1);
-
-			}
-			m_shEEG1List.Clear ();
-
-
-			if(m_shEEG2List.Count != 0) WriteWaveformHeaders (DataConstants.DRI_WF_EEG2);
-			foreach (short WaveValue in m_shEEG2List)
-			{
-				m_strBuilderWave.Append(dtime);
-				m_strBuilderWave.Append(',');
-				SaveWaveDataLists ("EEG2", WaveValue, 1);
-
-			}
-			m_shEEG2List.Clear ();
-
-			if(m_shEEG3List.Count != 0) WriteWaveformHeaders (DataConstants.DRI_WF_EEG3);
-			foreach (short WaveValue in m_shEEG3List)
-			{
-				m_strBuilderWave.Append(dtime);
-				m_strBuilderWave.Append(',');
-				SaveWaveDataLists ("EEG3", WaveValue, 1);
-
-			}
-			m_shEEG3List.Clear ();
-
-
-			if(m_shEEG4List.Count != 0) WriteWaveformHeaders (DataConstants.DRI_WF_EEG4);
-			foreach (short WaveValue in m_shEEG4List)
-			{
-				m_strBuilderWave.Append(dtime);
-				m_strBuilderWave.Append(',');
-				SaveWaveDataLists ("EEG4", WaveValue, 1);
-
-			}
-			m_shEEG4List.Clear ();
-
-
-
-            m_wftransmissionstart = false;
-
-		}
-
-		public void ShowWaveSubRecordData(short WaveValue)
-		{
-			string s1 = WaveValue.ToString ();
-			ValidateAddWaveData (s1, 0.01, false);
-
-			string pathcsv = Path.Combine(Directory.GetCurrentDirectory(),"AS3ExportDataWave.csv");
-
-			ExportToWaveCSVFile(pathcsv);
-
-			m_strBuilderWave.Clear();
-
-		}
+        }
 
         public void ShowBasicSubRecord(dri_phdb driSR)
         {
@@ -1270,7 +898,7 @@ namespace VSCapture
 
         }
 
-        public bool ValidateAddWaveData(object value, double decimalshift, bool rounddata)
+        public string ValidateWaveData(object value, double decimalshift, bool rounddata)
 		{
 			int val = Convert.ToInt32(value);
 			double dval = (Convert.ToDouble(value, CultureInfo.InvariantCulture))*decimalshift;
@@ -1282,38 +910,51 @@ namespace VSCapture
 			if (val < DataConstants.DATA_INVALID_LIMIT)
 			{
 				str = "-";
-				m_strBuilderWave.Append(str);
-				m_strBuilderWave.Append(',');
-				return false;
 			}
 
-			m_strBuilderWave.Append(str);
-			m_strBuilderWave.Append(',');
-			return true;
+			return str;
 		}
+        
+        public void ExportWaveToCSV()
+        {
+            int wavevallistcount = m_WaveValResultList.Count;
 
-        public void ExportToWaveCSVFile(string _FileName)
-		{
-			try
-			{
-				// Open file for reading. 
-				StreamWriter wrStream = new StreamWriter(_FileName, true, Encoding.UTF8);
+            if (wavevallistcount != 0)
+            {
+                foreach (WaveValResult WavValResult in m_WaveValResultList)
+                {
+                    string WavValID = string.Format("{0}WaveExport.csv", WavValResult.PhysioID);
 
-				wrStream.WriteLine(m_strBuilderWave);
-				m_strBuilderWave.Clear();
+                    string pathcsv = Path.Combine(Directory.GetCurrentDirectory(), WavValID);
 
-				// close file stream. 
-				wrStream.Close();
+                    int wavvalarraylength = WavValResult.Value.GetLength(0);
 
-			}
+                    double decimalshift = WavValResult.Unitshift;
 
-			catch (Exception _Exception)
-			{
-				// Error. 
-				Console.WriteLine("Exception caught in process: {0}", _Exception.ToString());
-			}
+                    for (int index = 0; index < wavvalarraylength; index++)
+                    {
+                        short Waveval = WavValResult.Value.ElementAt(index);
+                        
+                        string Wavevalue = ValidateWaveData(Waveval, decimalshift, false);
 
-		}
+                        m_strbuildwavevalues.Append(WavValResult.Timestamp);
+                        m_strbuildwavevalues.Append(',');
+                        m_strbuildwavevalues.Append(Wavevalue);
+                        m_strbuildwavevalues.Append(',');
+                        m_strbuildwavevalues.AppendLine();
+
+                    }
+
+                    ExportNumValListToCSVFile(pathcsv, m_strbuildwavevalues);
+
+                    m_strbuildwavevalues.Clear();
+                }
+
+                m_WaveValResultList.RemoveRange(0, wavevallistcount);
+
+            }
+
+        }
 
         public void WriteNumericHeadersList()
         {
@@ -1465,6 +1106,8 @@ namespace VSCapture
         {
             HttpWebRequest request = (HttpWebRequest)WebRequest.Create(m_jsonposturl);
             request.Method = "POST";
+
+            ServicePointManager.SecurityProtocol |= SecurityProtocolType.Ssl3 | SecurityProtocolType.Tls | SecurityProtocolType.Tls11 | SecurityProtocolType.Tls12;
 
             byte[] byteArray = Encoding.UTF8.GetBytes(postData);
             request.ContentType = "application/json";

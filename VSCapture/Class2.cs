@@ -1,5 +1,5 @@
 ﻿/*
- * This file is part of VitalSignsCaptureWave v1.007.
+ * This file is part of VitalSignsCaptureWave v1.008.
  * Copyright (C) 2015-19 John George K., xeonfusion@users.sourceforge.net
  * Portions of code (C) 1998 Stefan Lombaard
 
@@ -628,12 +628,45 @@ namespace VSCapture
 		public const byte DRI_WF_ENT_100 = 32;
 		public const byte DRI_WF_EEG_BIS = 35;
 
+        public enum WavesIDLabels : byte
+        {
+            DRI_WF_CMD = 0,
+            DRI_WF_ECG1 = 1,
+            DRI_WF_ECG2 = 2,
+            DRI_WF_ECG3 = 3,
+            DRI_WF_INVP1 = 4,
+            DRI_WF_INVP2 = 5,
+            DRI_WF_INVP3 = 6,
+            DRI_WF_INVP4 = 7,
+            DRI_WF_PLETH = 8,
+            DRI_WF_CO2 = 9,
+            DRI_WF_O2 = 10,
+            DRI_WF_N2O = 11,
+            DRI_WF_AA = 12,
+            DRI_WF_AWP = 13,
+            DRI_WF_FLOW = 14,
+            DRI_WF_RESP = 15,
+            DRI_WF_INVP5 = 16,
+            DRI_WF_INVP6 = 17,
+            DRI_WF_EEG1 = 18,
+            DRI_WF_EEG2 = 19,
+            DRI_WF_EEG3 = 20,
+            DRI_WF_EEG4 = 21,
+            DRI_WF_VOL = 23,
+            DRI_WF_TONO_PRESS = 24,
+            DRI_WF_SPI_LOOP_STATUS = 29,
+            DRI_WF_ENT_100 = 32,
+            DRI_WF_EEG_BIS = 35
+
+        }
+    
+
 
     }
 
 
-    #endregion
+        #endregion
 
-    
 
-}
+
+    }
