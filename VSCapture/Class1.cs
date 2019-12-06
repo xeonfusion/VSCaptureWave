@@ -1,5 +1,5 @@
 ﻿/*
- * This file is part of VitalSignsCaptureWave v1.008.
+ * This file is part of VitalSignsCaptureWave v1.009.
  * Copyright (C) 2015-19 John George K., xeonfusion@users.sourceforge.net
 
     VitalSignsCapture is free software: you can redistribute it and/or modify
@@ -618,21 +618,14 @@ namespace VSCapture
                         int offset = (int)sroffArray[i];
                         int nextoffset = 0;
 
-                        if (i == 7) nextoffset = 1450;
-                        else nextoffset = (int)sroffArray[i + 1];
+                        //read subrecord length from header to get nextoffset
+                        byte[] srsamplelenbytes = new byte[2];
+                        srsamplelenbytes[0] = dx_record.data[offset];
+                        srsamplelenbytes[1] = dx_record.data[offset+1];
+                        int srheaderlen = 6;
+                        int subrecordlen = srheaderlen + (BitConverter.ToInt16(srsamplelenbytes,0))*2;
+                        nextoffset = offset + subrecordlen;
                         
-                        if (nextoffset <= offset || nextoffset > 1450) break;
-                        if (nextoffset == DataConstants.DRI_EOL_SUBR_LIST)
-                        {
-                            //read subrecord length from header to get nextoffset
-                            byte[] srsamplelenbytes = new byte[2];
-                            srsamplelenbytes[0] = dx_record.data[offset];
-                            srsamplelenbytes[1] = dx_record.data[offset+1];
-                            int srheaderlen = 6;
-                            int subrecordlen = srheaderlen + (BitConverter.ToInt16(srsamplelenbytes,0))*2;
-                            nextoffset = offset + subrecordlen;
-                        }
-
                         int buflen = (nextoffset - offset - 6);
 
                         byte[] buffer = new byte[buflen];
@@ -1018,14 +1011,14 @@ namespace VSCapture
             try
             {
                 // Open file for reading. 
-                StreamWriter wrStream = new StreamWriter(_FileName, true, Encoding.UTF8);
+                using (StreamWriter wrStream = new StreamWriter(_FileName, true, Encoding.UTF8))
+                { 
+                    wrStream.Write(strbuildNumVal);
+                    strbuildNumVal.Clear();
 
-                wrStream.Write(strbuildNumVal);
-                strbuildNumVal.Clear();
-
-                // close file stream. 
-                wrStream.Close();
-
+                    // close file stream. 
+                    wrStream.Close();
+                }
             }
 
             catch (Exception _Exception)
@@ -1041,25 +1034,15 @@ namespace VSCapture
             try
             {
                 // Open file for reading. 
-                FileStream _FileStream = new FileStream(_FileName, FileMode.Append, FileAccess.Write);
+                using (FileStream _FileStream = new FileStream(_FileName, FileMode.Append, FileAccess.Write))
+                {
+                    // Writes a block of bytes to this stream using data from a byte array
+                    _FileStream.Write(_ByteArray, 0, nWriteLength);
 
-                // Writes a block of bytes to this stream using data from a byte array
-                _FileStream.Write(_ByteArray, 0, nWriteLength);
-
-                // close file stream. 
-                _FileStream.Close();
-
-                /* // Open file for reading. 
-                 StreamWriter wrStream = new StreamWriter(_FileName, true, Encoding.UTF8);
-
-                 String datastr = BitConverter.ToString(_ByteArray);
-
-                 wrStream.WriteLine(datastr);
-
-                 // close file stream. 
-                 wrStream.Close();*/
-
-
+                    // close file stream. 
+                    _FileStream.Close();
+                }
+                
                 return true;
             }
 

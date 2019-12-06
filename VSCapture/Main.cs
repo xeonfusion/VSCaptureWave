@@ -1,5 +1,5 @@
 /*
- * This file is part of VitalSignsCaptureWave v1.008.
+ * This file is part of VitalSignsCaptureWave v1.009.
  * Copyright (C) 2015-19 John George K., xeonfusion@users.sourceforge.net
 
     VitalSignsCapture is free software: you can redistribute it and/or modify
@@ -35,7 +35,7 @@ namespace VSCapture
 
         static void Main(string[] args)
         {
-            Console.WriteLine("VitalSignsCaptureWave v1.008 (C)2019 John George K.");
+            Console.WriteLine("VitalSignsCaptureWave v1.009 (C)2019 John George K.");
             Console.WriteLine("For command line usage: -help");
             Console.WriteLine();
 
@@ -125,6 +125,7 @@ namespace VSCapture
 
                     short nInterval = 5;
                     if (sInterval != "") nInterval = Convert.ToInt16(sInterval);
+                    if (nInterval < 5) nInterval = 5;
 
                     string sDataExportset;
                     if (parser.Arguments.ContainsKey("export"))
@@ -192,8 +193,9 @@ namespace VSCapture
                         Console.WriteLine("3. ECG1, PLETH, CO2, RESP, AWP, VOL, FLOW");
                         Console.WriteLine("4. ECG1, ECG2");
                         Console.WriteLine("5. EEG1, EEG2, EEG3, EEG4");
+                        Console.WriteLine("6. ECG1, ECG2, ECG3");
                         Console.WriteLine();
-                        Console.Write("Choose Waveform data Transmission set (0-5):");
+                        Console.Write("Choose Waveform data Transmission set (0-6):");
 
                         sWaveformSet = Console.ReadLine();
                         
@@ -367,7 +369,13 @@ namespace VSCapture
 				WaveTrtype [3] = DataConstants.DRI_WF_EEG4;
 				WaveTrtype [4] = DataConstants.DRI_EOL_SUBR_LIST;
 				break;
-			default:
+            case 6:
+                WaveTrtype[0] = DataConstants.DRI_WF_ECG1;
+                WaveTrtype[1] = DataConstants.DRI_WF_ECG2;
+                WaveTrtype[2] = DataConstants.DRI_WF_ECG3;
+                WaveTrtype[3] = DataConstants.DRI_EOL_SUBR_LIST;
+                break;
+            default:
 				WaveTrtype [0] = DataConstants.DRI_WF_ECG1;
 				WaveTrtype [1] = DataConstants.DRI_WF_INVP1;
 				WaveTrtype [2] = DataConstants.DRI_WF_INVP2;
