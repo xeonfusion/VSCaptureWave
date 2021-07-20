@@ -588,7 +588,8 @@ namespace VSCapture
                     DateTime dtDateTime = new DateTime(1970, 1, 1, 0, 0, 0, 0);
                     //dtDateTime = dtDateTime.AddSeconds(unixtime).ToLocalTime();
                     dtDateTime = dtDateTime.AddSeconds(unixtime);
-                    m_strTimestamp = dtDateTime.ToString("G", DateTimeFormatInfo.InvariantInfo);
+                    //m_strTimestamp = dtDateTime.ToString("G", DateTimeFormatInfo.InvariantInfo);
+                    m_strTimestamp = dtDateTime.ToString("dd-MM-yyyy HH:mm:ss", CultureInfo.InvariantCulture);
 
                     Console.WriteLine();
                     Console.WriteLine("Time:{0}", dtDateTime.ToString());
@@ -747,9 +748,9 @@ namespace VSCapture
             short so9 = driSR.basic.aa.mac_sum;
             ushort so10 = driSR.basic.aa.hdr.label_info;
 
-            ValidateAddData("AA_ET", so7, 0.01, false);
-            ValidateAddData("AA_FI", so8, 0.01, false);
-            string s9 = ValidateAddData("AA_MAC_SUM", so9, 0.01, false);
+            ValidateAddData("AA_ET", so7, 0.01, false, "{0:0.00}");
+            ValidateAddData("AA_FI", so8, 0.01, false, "{0:0.00}");
+            string s9 = ValidateAddData("AA_MAC_SUM", so9, 0.01, false, "{0:0.00}");
 
             string s10 = "";
 
@@ -810,12 +811,12 @@ namespace VSCapture
 			double so32 = driSR.basic.flow_vol.rr;
 
 
-            ValidateAddData("O2_FI", so11, 0.01, false);
-            ValidateAddData("N2O_FI", so12, 0.01, false);
-            ValidateAddData("N2O_ET", so13, 0.01, false);
-            ValidateAddData("CO2_RR", so14, 1, false);
-            string s15 = ValidateAddData("T1_Temp", so15, 0.01, false);
-            string s16 = ValidateAddData("T2_Temp", so16, 0.01, false);
+            ValidateAddData("O2_FI", so11, 0.01, false, "{0:0.00}");
+            ValidateAddData("N2O_FI", so12, 0.01, false, "{0:0.00}");
+            ValidateAddData("N2O_ET", so13, 0.01, false, "{0:0.00}");
+            ValidateAddData("CO2_RR", so14, 1, true);
+            string s15 = ValidateAddData("T1_Temp", so15, 0.01, false, "{0:0.00}");
+            string s16 = ValidateAddData("T2_Temp", so16, 0.01, false, "{0:0.00}");
 
             /*string P1Label = GetInvasivePressureLabel(driSR.basic.p1.hdr.label_info);
             string P2Label = GetInvasivePressureLabel(driSR.basic.p2.hdr.label_info);
@@ -842,11 +843,11 @@ namespace VSCapture
             ValidateAddData("PPeak", so25, 0.01, true);
             ValidateAddData("PPlat", so26, 0.01, true);
             ValidateAddData("TV_Exp", so27, 0.1, true);
-			ValidateAddData("TV_Insp", so28, 0.1, true);
-			ValidateAddData("PEEP", so29, 0.01, true);
-			ValidateAddData("MV_Exp", so30, 0.01, false);
-			ValidateAddData("Compliance", so31, 0.01, true);
-			ValidateAddData("RR", so32, 1, true);
+            ValidateAddData("TV_Insp", so28, 0.1, true);
+            ValidateAddData("PEEP", so29, 0.01, true);
+            ValidateAddData("MV_Exp", so30, 0.01, false, "{0:0.00}");
+            ValidateAddData("Compliance", so31, 0.01, true);
+            ValidateAddData("RR", so32, 1, true);
 
             Console.WriteLine("ECG HR {0:d}/min NIBP {1:d}/{2:d}({3:d})mmHg SpO2 {4:d}% ETCO2 {5:d}mmHg", s1, s2, s3, s4, s5,s6);
             Console.WriteLine("IBP1 {0:d}/{1:d}({2:d})mmHg IBP2 {3:d}/{4:d}({5:d})mmHg MAC {6} T1 {7}°C T2 {8}°C", s18, s19, s20, s22, s23, s24, s9, s15, s16);
@@ -875,8 +876,8 @@ namespace VSCapture
                 nmtmode = DataConstants.stim_types.PTC_STIM.ToString();
             }
             AddDataString("NMT_MODE", nmtmode);
-            
-            ValidateAddData("NMT_TWITCH_RATIO", so33, 0.1, false);
+
+            ValidateAddData("NMT_TWITCH_RATIO", so33, 0.1, false, "{0:0.00}");
             ValidateAddData("NMT_T1", so34, 0.1, false);
 
         }
@@ -971,11 +972,11 @@ namespace VSCapture
 
             string pathcsv = Path.Combine(Directory.GetCurrentDirectory(),"AS3ExportData.csv");
 
-            string s1 = ValidateAddData("ST_II", so1, 0.01,false);
+            string s1 = ValidateAddData("ST_II", so1, 0.01, false, "{0:0.00}");
 
-            string s2 = ValidateAddData("ST_V5", so2, 0.01, false);
+            string s2 = ValidateAddData("ST_V5", so2, 0.01, false, "{0:0.00}");
 
-            string s3 = ValidateAddData("ST_aVL", so3, 0.01, false);
+            string s3 = ValidateAddData("ST_aVL", so3, 0.01, false, "{0:0.00}");
 
             short so4 = driSR.ext2.ent.eeg_ent;
             short so5 = driSR.ext2.ent.emg_ent;
@@ -1011,9 +1012,9 @@ namespace VSCapture
             ValidateAddData("NMT_T3", so14, 1, false);
             ValidateAddData("NMT_T4", so15, 1, false);
 
-            ValidateAddData("SPV", so16, 0.01, false);
-            ValidateAddData("PPV", so17, 0.01, false);
-            ValidateAddData("MAC_AGE_SUM", so18, 1, false);
+            ValidateAddData("SPV", so16, 0.01, false, "{0:0.0}");
+            ValidateAddData("PPV", so17, 0.01, false, "{0:0.0}");
+            ValidateAddData("MAC_AGE_SUM", so18, 1, false, "{0:0.00}");
 
         }
 
@@ -1021,11 +1022,36 @@ namespace VSCapture
         public string ValidateAddData(string physio_id, object value, double decimalshift, bool rounddata)
         {
             int val = Convert.ToInt32(value);
-            double dval = (Convert.ToDouble(value, CultureInfo.InvariantCulture))*decimalshift;
+            double dval = Convert.ToDouble(value, CultureInfo.InvariantCulture) * decimalshift;
             if (rounddata) dval = Math.Round(dval);
 
             string valuestr = dval.ToString();
             
+            if (val < DataConstants.DATA_INVALID_LIMIT)
+            {
+                valuestr = "-";
+            }
+
+            NumericValResult NumVal = new NumericValResult();
+
+            NumVal.Timestamp = m_strTimestamp;
+            NumVal.PhysioID = physio_id;
+            NumVal.Value = valuestr;
+            NumVal.DeviceID = m_DeviceID;
+
+            m_NumericValList.Add(NumVal);
+            m_NumValHeaders.Add(NumVal.PhysioID);
+
+            return valuestr;
+        }
+
+        public string ValidateAddData(string physio_id, object value, double decimalshift, bool rounddata, string decimalformat)
+        {
+            int val = Convert.ToInt32(value);
+            double dval = Convert.ToDouble(value, CultureInfo.InvariantCulture) * decimalshift;
+            if (rounddata) dval = Math.Round(dval);
+
+            string valuestr = String.Format(decimalformat, dval);
 
             if (val < DataConstants.DATA_INVALID_LIMIT)
             {
@@ -1258,7 +1284,7 @@ namespace VSCapture
             HttpWebRequest request = (HttpWebRequest)WebRequest.Create(m_jsonposturl);
             request.Method = "POST";
 
-            ServicePointManager.SecurityProtocol |= SecurityProtocolType.Ssl3 | SecurityProtocolType.Tls | SecurityProtocolType.Tls11 | SecurityProtocolType.Tls12;
+            ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls | SecurityProtocolType.Tls11 | SecurityProtocolType.Tls12;
 
             byte[] byteArray = Encoding.UTF8.GetBytes(postData);
             request.ContentType = "application/json";
