@@ -1,6 +1,6 @@
 ﻿/*
- * This file is part of VitalSignsCaptureWave v1.009.
- * Copyright (C) 2015-19 John George K., xeonfusion@users.sourceforge.net
+ * This file is part of VitalSignsCaptureWave v1.010.
+ * Copyright (C) 2015-21 John George K., xeonfusion@users.sourceforge.net
  * Portions of code (C) 1998 Stefan Lombaard
 
     VitalSignsCapture is free software: you can redistribute it and/or modify
@@ -342,8 +342,13 @@ namespace VSCapture
     {
         public arrh_ecg_group ecg = new arrh_ecg_group();
         public ecg_12_group ecg12 = new ecg_12_group();
-        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 192)]
-        public byte[] reserved = new byte[192];
+        public p_group_type p7 = new p_group_type();
+        public p_group_type p8 = new p_group_type();
+        public SpO2_group_type SpO2_ch2 = new SpO2_group_type();
+        public t_group_type t5 = new t_group_type();
+        public t_group_type t6 = new t_group_type();
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 134)]
+        public byte[] reserved = new byte[134];
         
     };
 
@@ -351,7 +356,7 @@ namespace VSCapture
     public class nmt2_group
     {
         public group_hdr_type hdr = new group_hdr_type();
-        public short reserved;
+        public short count;
         public short nmt_t1;
         public short nmt_t2;
         public short nmt_t3;
@@ -409,7 +414,18 @@ namespace VSCapture
         
     };
 
-    [StructLayout(LayoutKind.Sequential, Pack = 1, Size = 31, CharSet = CharSet.Ansi)]
+    [StructLayout(LayoutKind.Sequential, Pack = 1, Size = 28, CharSet = CharSet.Ansi)]
+    public class entropyrd_group
+    {
+        public group_hdr_type hdr = new group_hdr_type();
+        public short eeg_ent;
+        public short emg_ent;
+        public short bsr_ent;
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 8)]
+        public short[] reserved = new short[8];
+    };
+
+    [StructLayout(LayoutKind.Sequential, Pack = 1, Size = 32, CharSet = CharSet.Ansi)]
     public class eeg2_group
     {
         public group_hdr_type hdr = new group_hdr_type();
@@ -422,9 +438,19 @@ namespace VSCapture
         public byte montage_label_ch_3_p;
         public byte montage_label_ch_4_m;
         public byte montage_label_ch_4_p;
+        public byte reserved_byte;
         [MarshalAs(UnmanagedType.ByValArray, SizeConst = 8)]
         public short[] reserved = new short[8];
         
+    };
+
+    [StructLayout(LayoutKind.Sequential, Pack = 1, Size = 16, CharSet = CharSet.Ansi)]
+    public class spi_group
+    {
+        public group_hdr_type hdr = new group_hdr_type();
+        public short spiVal;
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 4)]
+        public short[] reserved = new short[4];
     };
 
     [StructLayout(LayoutKind.Sequential, Pack = 1, Size = 270, CharSet = CharSet.Ansi)]
@@ -434,11 +460,13 @@ namespace VSCapture
         public eeg_group eeg = new eeg_group();
         public eeg_bis_group eeg_bis = new eeg_bis_group();
         public entropy_group ent = new entropy_group();
-        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 58)]
-        public byte[] reserved1 = new byte[58];
+        public entropyrd_group ent_rd = new entropyrd_group();
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 30)]
+        public byte[] reserved1 = new byte[30];
         public eeg2_group eeg2 = new eeg2_group();
-        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 41)]
-        public byte[] reserved = new byte[41];
+        public spi_group spi = new spi_group();
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 24)]
+        public byte[] reserved = new byte[24];
         
     };
 
@@ -506,6 +534,59 @@ namespace VSCapture
         
     };
 
+    [StructLayout(LayoutKind.Sequential, Pack = 1, Size = 10, CharSet = CharSet.Ansi)]
+    public class delp_group
+    {
+        public group_hdr_type hdr = new group_hdr_type();
+        public short spv;
+        public short ppv;
+    };
+
+    [StructLayout(LayoutKind.Sequential, Pack = 1, Size = 8, CharSet = CharSet.Ansi)]
+    public class cpp_group
+    {
+        public group_hdr_type hdr = new group_hdr_type();
+        public short value;
+    };
+
+    [StructLayout(LayoutKind.Sequential, Pack = 1, Size = 8, CharSet = CharSet.Ansi)]
+    public class cpp2_group
+    {
+        public group_hdr_type hdr = new group_hdr_type();
+        public short value;
+    };
+
+    [StructLayout(LayoutKind.Sequential, Pack = 1, Size = 54, CharSet = CharSet.Ansi)]
+    public class picco_group
+    {
+        public group_hdr_type hdr = new group_hdr_type();
+        public short cci;
+        public short cco;
+        public short cfi;
+        public short ci;
+        public short co;
+        public short cpi;
+        public short cpo;
+        public short dpmax;
+        public short elwi;
+        public short evlw;
+        public short gedi;
+        public short gedv;
+        public short gef;
+        public short itbi;
+        public short itbv;
+        public short ppv;
+        public short pvpi;
+        public short sv;
+        public short svi;
+        public short svr;
+        public short svri;
+        public short svv;
+        public short tblood;
+        public short tinj;
+
+    };
+
     [StructLayout(LayoutKind.Sequential, Pack = 1, Size = 270, CharSet = CharSet.Ansi)]
     public class ext3_phdb
     {
@@ -514,8 +595,12 @@ namespace VSCapture
         public bal_gas_group bal = new bal_gas_group();
         public tono_group tono = new tono_group();
         public aa2_group aa2 = new aa2_group();
-        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 154)]
-        public byte[] reserved = new byte[154];
+        public delp_group depl = new delp_group();
+        public cpp_group cpp = new cpp_group();
+        public cpp2_group cpp2 = new cpp2_group();
+        public picco_group picco = new picco_group();
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 74)]
+        public byte[] reserved = new byte[74];
         
     };
 
@@ -593,9 +678,11 @@ namespace VSCapture
 		public const byte DRI_LEVEL_2001 = 0x07;
 		public const byte DRI_LEVEL_2003 = 0x08;
 		public const byte DRI_LEVEL_2005 = 0x09;
+        public const byte DRI_LEVEL_2009 = 0x0A;
+        public const byte DRI_LEVEL_2015 = 0x0B;
 
 
-		public const short WF_REQ_CONT_START = 0;
+        public const short WF_REQ_CONT_START = 0;
 		public const short WF_REQ_CONT_STOP = 1;
 		
 		public const byte DRI_EOL_SUBR_LIST = 0xFF;
@@ -659,8 +746,26 @@ namespace VSCapture
             DRI_WF_EEG_BIS = 35
 
         }
-    
 
+        [Flags]
+        public enum stim_types
+        {
+            TOF = 0,
+            DBS = 1,
+            ST_STIM = 2,
+            PTC_STIM = 3,
+            NR_STIM_TYPES = 4
+        }
+
+        [Flags]
+        enum pulse_width_types
+        {
+            PULSE_NOT_USED = 0,
+            PULSE_100 = 1,
+            PULSE_200 = 2,
+            PULSE_300 = 3,
+            PULSE_NR = 4
+        }
 
     }
 

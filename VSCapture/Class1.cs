@@ -1,6 +1,6 @@
 ﻿/*
- * This file is part of VitalSignsCaptureWave v1.009.
- * Copyright (C) 2015-19 John George K., xeonfusion@users.sourceforge.net
+ * This file is part of VitalSignsCaptureWave v1.010.
+ * Copyright (C) 2015-21 John George K., xeonfusion@users.sourceforge.net
 
     VitalSignsCapture is free software: you can redistribute it and/or modify
     it under the terms of the GNU Lesser General Public License as published by
@@ -28,6 +28,13 @@ using System.Globalization;
 using System.Runtime.Serialization.Json;
 using System.Net;
 using System.Threading.Tasks;
+
+using MQTTnet;
+//using MQTTnet.Client;
+using MQTTnet.Client.Options;
+using MQTTnet.Extensions.ManagedClient;
+using MQTTnet.Client.Connecting;
+using MQTTnet.Diagnostics;
 
 namespace VSCapture
 {
@@ -63,6 +70,12 @@ namespace VSCapture
         
         public string m_DeviceID;
         public string m_jsonposturl;
+
+        public string m_MQTTUrl;
+        public string m_MQTTtopic;
+        public string m_MQTTuser;
+        public string m_MQTTpassw;
+        public string m_MQTTclientId = Guid.NewGuid().ToString();
 
         public class NumericValResult
         {
@@ -500,6 +513,8 @@ namespace VSCapture
 		
 		public void StopwaveTransfer()
         {
+            RequestWaveTransfer(0, DataConstants.WF_REQ_CONT_STOP, DataConstants.DRI_LEVEL_2015);
+            RequestWaveTransfer(0, DataConstants.WF_REQ_CONT_STOP, DataConstants.DRI_LEVEL_2009);
             RequestWaveTransfer(0, DataConstants.WF_REQ_CONT_STOP, DataConstants.DRI_LEVEL_2005);
 			RequestWaveTransfer(0, DataConstants.WF_REQ_CONT_STOP, DataConstants.DRI_LEVEL_2003);
 			RequestWaveTransfer(0, DataConstants.WF_REQ_CONT_STOP, DataConstants.DRI_LEVEL_2001);
@@ -508,8 +523,10 @@ namespace VSCapture
 
         public void StopTransfer()
         {
-			//RequestTransfer(DataConstants.DRI_PH_60S_TREND, 0);
-			RequestTransfer(DataConstants.DRI_PH_DISPL, 0, DataConstants.DRI_LEVEL_2005);
+            //RequestTransfer(DataConstants.DRI_PH_60S_TREND, 0);
+            RequestTransfer(DataConstants.DRI_PH_DISPL, 0, DataConstants.DRI_LEVEL_2015);
+            RequestTransfer(DataConstants.DRI_PH_DISPL, 0, DataConstants.DRI_LEVEL_2009);
+            RequestTransfer(DataConstants.DRI_PH_DISPL, 0, DataConstants.DRI_LEVEL_2005);
 			RequestTransfer(DataConstants.DRI_PH_DISPL, 0, DataConstants.DRI_LEVEL_2003);
 			RequestTransfer(DataConstants.DRI_PH_DISPL, 0, DataConstants.DRI_LEVEL_2001);
 
@@ -577,11 +594,15 @@ namespace VSCapture
                     Console.WriteLine("Time:{0}", dtDateTime.ToString());
 
                     ShowBasicSubRecord(phdata_ptr);
-                    ShowExt1and2SubRecord(phdata_ptr);
+                    ShowExt1Ext2Ext3SubRecord(phdata_ptr);
 
                     if(m_dataexportset == 2) ExportNumValListToJSON();
-                    SaveNumericValueListRows();
-
+                    if(m_dataexportset == 3) ExportNumValListToMQTT("Numeric");
+                    if(m_dataexportset != 3)
+                    {
+                        SaveNumericValueListRows();
+                    }
+  
                 }
             }
 
@@ -590,7 +611,8 @@ namespace VSCapture
         
         public void ReadMultipleWaveSubRecords()
         {
-            
+            if (m_dataexportset == 3) return;
+
             foreach (datex_record_type dx_record in RecordList)
             {
 
@@ -692,6 +714,8 @@ namespace VSCapture
                 return (decimalshift = -1);
             if (physioID.Contains("EEG") == true)
                 return (decimalshift = 1);
+            if (physioID.Contains("ENT") == true)
+                return (decimalshift = 0.1);
             else return decimalshift;
 
         }
@@ -771,7 +795,11 @@ namespace VSCapture
             double so22 = driSR.basic.p2.sys;
             double so23 = driSR.basic.p2.dia;
             double so24 = driSR.basic.p2.mean;
-            
+            double so36 = driSR.basic.p3.hr;
+            double so37 = driSR.basic.p3.sys;
+            double so38 = driSR.basic.p3.dia;
+            double so39 = driSR.basic.p3.mean;
+
             double so25 = driSR.basic.flow_vol.ppeak;
             double so26 = driSR.basic.flow_vol.pplat;
             double so27 = driSR.basic.flow_vol.tv_exp;
@@ -788,18 +816,29 @@ namespace VSCapture
             ValidateAddData("CO2_RR", so14, 1, false);
             string s15 = ValidateAddData("T1_Temp", so15, 0.01, false);
             string s16 = ValidateAddData("T2_Temp", so16, 0.01, false);
-            
-            
-            ValidateAddData("P1_HR", so17, 1, true);
-            string s18 = ValidateAddData("P1_Systolic", so18, 0.01, true);
-            string s19 = ValidateAddData("P1_Disatolic", so19, 0.01, true);
-            string s20 = ValidateAddData("P1_Mean", so20, 0.01, true);
-            ValidateAddData("P2_HR", so21, 1, true);
-            string s22 = ValidateAddData("P2_Systolic", so22, 0.01, true);
-            string s23 = ValidateAddData("P2_Diastolic", so23, 0.01, true);
-            string s24 = ValidateAddData("P2_Mean", so24, 0.01, true);
-                        
-            
+
+            /*string P1Label = GetInvasivePressureLabel(driSR.basic.p1.hdr.label_info);
+            string P2Label = GetInvasivePressureLabel(driSR.basic.p2.hdr.label_info);
+            string P3Label = GetInvasivePressureLabel(driSR.basic.p3.hdr.label_info);*/
+
+            string P1Label = "P1";
+            string P2Label = "P2";
+            string P3Label = "P3";
+
+            ValidateAddData(P1Label + "_HR", so17, 1, true);
+            string s18 = ValidateAddData(P1Label + "_Systolic", so18, 0.01, true);
+            string s19 = ValidateAddData(P1Label + "_Diastolic", so19, 0.01, true);
+            string s20 = ValidateAddData(P1Label + "_Mean", so20, 0.01, true);
+            ValidateAddData(P2Label + "_HR", so21, 1, true);
+            string s22 = ValidateAddData(P2Label + "_Systolic", so22, 0.01, true);
+            string s23 = ValidateAddData(P2Label + "_Diastolic", so23, 0.01, true);
+            string s24 = ValidateAddData(P2Label + "_Mean", so24, 0.01, true);
+            ValidateAddData(P3Label + "_HR", so36, 1, true);
+            string s37 = ValidateAddData(P3Label + "_Systolic", so37, 0.01, true);
+            string s38 = ValidateAddData(P3Label + "_Diastolic", so38, 0.01, true);
+            string s39 = ValidateAddData(P3Label + "_Mean", so39, 0.01, true);
+
+
             ValidateAddData("PPeak", so25, 0.01, true);
             ValidateAddData("PPlat", so26, 0.01, true);
             ValidateAddData("TV_Exp", so27, 0.1, true);
@@ -812,9 +851,119 @@ namespace VSCapture
             Console.WriteLine("ECG HR {0:d}/min NIBP {1:d}/{2:d}({3:d})mmHg SpO2 {4:d}% ETCO2 {5:d}mmHg", s1, s2, s3, s4, s5,s6);
             Console.WriteLine("IBP1 {0:d}/{1:d}({2:d})mmHg IBP2 {3:d}/{4:d}({5:d})mmHg MAC {6} T1 {7}°C T2 {8}°C", s18, s19, s20, s22, s23, s24, s9, s15, s16);
 
-	    }
+            short so33 = driSR.basic.nmt.tratio;
+            short so34 = driSR.basic.nmt.t1;
+            short so35 = driSR.basic.nmt.ptc;
 
-        public void ShowExt1and2SubRecord(dri_phdb driSR)
+            uint n1 = driSR.basic.nmt.hdr.status_bits;
+
+            string nmtmode = "";
+            if(((n1>>2) & (uint)DataConstants.stim_types.TOF)== (uint)DataConstants.stim_types.TOF)
+            {
+                nmtmode = DataConstants.stim_types.TOF.ToString();
+            }
+            else if (((n1 >> 2) & (uint)DataConstants.stim_types.DBS) == (uint)DataConstants.stim_types.DBS)
+            {
+                nmtmode = DataConstants.stim_types.DBS.ToString();
+            }
+            else if (((n1 >> 2) & (uint)DataConstants.stim_types.ST_STIM) == (uint)DataConstants.stim_types.ST_STIM)
+            {
+                nmtmode = DataConstants.stim_types.ST_STIM.ToString();
+            }
+            else if (((n1 >> 2) & (uint)DataConstants.stim_types.PTC_STIM) == (uint)DataConstants.stim_types.PTC_STIM)
+            {
+                nmtmode = DataConstants.stim_types.PTC_STIM.ToString();
+            }
+            AddDataString("NMT_MODE", nmtmode);
+            
+            ValidateAddData("NMT_TWITCH_RATIO", so33, 0.1, false);
+            ValidateAddData("NMT_T1", so34, 0.1, false);
+
+        }
+
+        static string GetInvasivePressureLabel(int labelinfo)
+        {
+            string InvPLabel;
+
+            switch(labelinfo)
+            {
+                case 0:
+                    InvPLabel = "NOTDEFINED";
+                    break;
+                case 1:
+                    InvPLabel = "ART";
+                    break;
+                case 2:
+                    InvPLabel = "CVP";
+                    break;
+                case 3:
+                    InvPLabel = "PA";
+                    break;
+                case 4:
+                    InvPLabel = "RAP";
+                    break;
+                case 5:
+                    InvPLabel = "RVP";
+                    break;
+                case 6:
+                    InvPLabel = "LAP";
+                    break;
+                case 7:
+                    InvPLabel = "ICP";
+                    break;
+                case 8:
+                    InvPLabel = "ABP";
+                    break;
+                case 9:
+                    InvPLabel = "P1";
+                    break;
+                case 10:
+                    InvPLabel = "P2";
+                    break;
+                case 11:
+                    InvPLabel = "P3";
+                    break;
+                case 12:
+                    InvPLabel = "P4";
+                    break;
+                case 13:
+                    InvPLabel = "P5";
+                    break;
+                case 14:
+                    InvPLabel = "P6";
+                    break;
+                case 15:
+                    InvPLabel = "SP";
+                    break;
+                case 16:
+                    InvPLabel = "FEM";
+                    break;
+                case 17:
+                    InvPLabel = "UAC";
+                    break;
+                case 18:
+                    InvPLabel = "UVC";
+                    break;
+                case 19:
+                    InvPLabel = "ICP2";
+                    break;
+                case 20:
+                    InvPLabel = "P7";
+                    break;
+                case 21:
+                    InvPLabel = "P8";
+                    break;
+                case 22:
+                    InvPLabel = "FEMV";
+                    break;
+                default:
+                    InvPLabel = "UNDEFINED";
+                    break;
+            }
+            return InvPLabel;
+        }
+
+        public void ShowExt1Ext2Ext3SubRecord(dri_phdb driSR)
         {
             short so1 = driSR.ext1.ecg12.stII;
             short so2 = driSR.ext1.ecg12.stV5;
@@ -846,10 +995,29 @@ namespace VSCapture
             
             Console.WriteLine("ST II {0:0.0}mm ST V5 {1:0.0}mm ST aVL {2:0.0}mm", s1, s2, s3);
 
+            short so11 = driSR.ext2.nmt2.count;
+            short so12 = driSR.ext2.nmt2.nmt_t1;
+            short so13 = driSR.ext2.nmt2.nmt_t2;
+            short so14 = driSR.ext2.nmt2.nmt_t3;
+            short so15 = driSR.ext2.nmt2.nmt_t4;
+
+            double so16 = driSR.ext3.depl.spv;
+            double so17 = driSR.ext3.depl.ppv;
+            short so18 = driSR.ext3.aa2.mac_age_sum;
+
+            ValidateAddData("NMT_Count", so11, 1, true);
+            ValidateAddData("NMT_T1", so12, 1, false);
+            ValidateAddData("NMT_T2", so13, 1, false);
+            ValidateAddData("NMT_T3", so14, 1, false);
+            ValidateAddData("NMT_T4", so15, 1, false);
+
+            ValidateAddData("SPV", so16, 0.01, false);
+            ValidateAddData("PPV", so17, 0.01, false);
+            ValidateAddData("MAC_AGE_SUM", so18, 1, false);
 
         }
 
-        
+
         public string ValidateAddData(string physio_id, object value, double decimalshift, bool rounddata)
         {
             int val = Convert.ToInt32(value);
@@ -1116,6 +1284,111 @@ namespace VSCapture
             }
 
             response.Close();
+        }
+
+        public void ExportNumValListToMQTT(string datatype)
+        {
+            DataContractJsonSerializer jsonSerializer = new DataContractJsonSerializer(typeof(List<NumericValResult>));
+
+            MemoryStream memstream = new MemoryStream();
+            jsonSerializer.WriteObject(memstream, m_NumericValList);
+
+            string serializedJSON = Encoding.UTF8.GetString(memstream.ToArray());
+            memstream.Close();
+
+            m_NumericValList.RemoveRange(0, m_NumericValList.Count);
+            CancellationTokenSource source = new CancellationTokenSource();
+            CancellationToken token = source.Token;
+
+            var mqttClient = new MqttFactory().CreateMqttClient();
+            var managedClient = new ManagedMqttClient(mqttClient, new MqttNetLogger());
+            {
+                try
+                {
+                    var task = Task.Run(async () =>
+                    {
+                        var connected = GetConnectedTask(managedClient);
+                        await ConnectMQTTAsync(managedClient, token, m_MQTTUrl, m_MQTTclientId, m_MQTTuser, m_MQTTpassw);
+                        await connected;
+
+                    });
+
+                    task.ContinueWith(antecedent => {
+                        if (antecedent.Status == TaskStatus.RanToCompletion)
+                        {
+                            Task.Run(async () =>
+                            {
+                                await PublishMQTTAsync(managedClient, token, m_MQTTtopic, serializedJSON);
+                                await managedClient.StopAsync();
+                            });
+                        }
+                    });
+
+                    //ConnectMQTTAsync(m_mqttClient, token, m_MQTTUrl, m_MQTTclientId, m_MQTTuser, m_MQTTpassw).Wait();
+                    //m_MQTTtopic = String.Format("/VSCapture/{0}/numericdata/", m_DeviceID);
+                    //PublishMQTTAsync(m_mqttClient, token, m_MQTTtopic, serializedJSON).Wait();
+                }
+
+                catch (Exception _Exception)
+                {
+                    // Error. 
+                    Console.WriteLine("Exception caught in process: {0}", _Exception.ToString());
+                }
+
+            }
+
+        }
+
+        public static async Task ConnectMQTTAsync(ManagedMqttClient mqttClient, CancellationToken token, string mqtturl, string clientId, string mqttuser, string mqttpassw)
+        {
+            bool mqttSecure = true;
+
+            var messageBuilder = new MqttClientOptionsBuilder()
+            .WithClientId(clientId)
+            .WithCredentials(mqttuser, mqttpassw)
+            .WithCommunicationTimeout(new TimeSpan(0, 0, 10))
+            .WithWebSocketServer(mqtturl)
+            .WithCleanSession();
+
+            var options = mqttSecure
+            ? messageBuilder
+                .WithTls()
+                .Build()
+            : messageBuilder
+                .Build();
+
+            var managedOptions = new ManagedMqttClientOptionsBuilder()
+              .WithAutoReconnectDelay(TimeSpan.FromSeconds(5))
+              .WithClientOptions(options)
+              .Build();
+
+            await mqttClient.StartAsync(managedOptions);
+
+        }
+
+        public static async Task PublishMQTTAsync(ManagedMqttClient mqttClient, CancellationToken token, string topic, string payload, bool retainFlag = true, int qos = 1)
+        {
+            if (mqttClient.IsConnected)
+            {
+                await mqttClient.PublishAsync(new MqttApplicationMessageBuilder()
+               .WithTopic(topic)
+               .WithPayload(payload)
+               .WithQualityOfServiceLevel((MQTTnet.Protocol.MqttQualityOfServiceLevel)qos)
+               .WithRetainFlag(retainFlag)
+               .Build(), token);
+            }
+
+        }
+
+        Task GetConnectedTask(ManagedMqttClient managedClient)
+        {
+            TaskCompletionSource<bool> connected = new TaskCompletionSource<bool>();
+            managedClient.ConnectedHandler = new MqttClientConnectedHandlerDelegate(e =>
+            {
+                managedClient.ConnectedHandler = null;
+                connected.SetResult(true);
+            });
+            return connected.Task;
         }
 
         public bool OSIsUnix()

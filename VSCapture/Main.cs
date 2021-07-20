@@ -1,6 +1,6 @@
 /*
- * This file is part of VitalSignsCaptureWave v1.009.
- * Copyright (C) 2015-19 John George K., xeonfusion@users.sourceforge.net
+ * This file is part of VitalSignsCaptureWave v1.010.
+ * Copyright (C) 2015-21 John George K., xeonfusion@users.sourceforge.net
 
     VitalSignsCapture is free software: you can redistribute it and/or modify
     it under the terms of the GNU Lesser General Public License as published by
@@ -32,10 +32,14 @@ namespace VSCapture
         static EventHandler dataEvent;
         public static string DeviceID;
         public static string JSONPostUrl;
+        public static string MQTTUrl;
+        public static string MQTTtopic;
+        public static string MQTTuser;
+        public static string MQTTpassw;
 
         static void Main(string[] args)
         {
-            Console.WriteLine("VitalSignsCaptureWave v1.009 (C)2019 John George K.");
+            Console.WriteLine("VitalSignsCaptureWave v1.010 (C)2015-21 John George K.");
             Console.WriteLine("For command line usage: -help");
             Console.WriteLine();
 
@@ -51,12 +55,16 @@ namespace VSCapture
             if(parser.Arguments.ContainsKey("help"))
             {
                 Console.WriteLine("VSCapture.exe -port [portname] -interval [number] -waveset [number]");
+                Console.WriteLine(" -waveset[number] -export[number] -devid[name] -url [name]");
                 Console.WriteLine("-port <Set serial port name>");
                 Console.WriteLine("-interval <Set numeric transmission interval>");
                 Console.WriteLine("-waveset <Set waveform transmission set option>");
-                Console.WriteLine("-export <Set data export CSV or JSON option>");
-                Console.WriteLine("-devid <Set device ID for JSON export>");
-                Console.WriteLine("-url <Set JSON export url>");
+                Console.WriteLine("-export <Set data export CSV, MQTT or JSON option>");
+                Console.WriteLine("-devid <Set device ID for MQTT or JSON export>");
+                Console.WriteLine("-url <Set MQTT or JSON export url>");
+                Console.WriteLine("-topic <Set topic for MQTT export>");
+                Console.WriteLine("-user <Set username for MQTT export>");
+                Console.WriteLine("-passw <Set password for MQTT export>");
                 Console.WriteLine();
                 return;
             }
@@ -138,8 +146,9 @@ namespace VSCapture
                         Console.WriteLine("Data export options:");
                         Console.WriteLine("1. Export as CSV files");
                         Console.WriteLine("2. Export as CSV files and JSON to URL");
+                        Console.WriteLine("3. Export as MQTT to URL");
                         Console.WriteLine();
-                        Console.Write("Choose data export option (1-2):");
+                        Console.Write("Choose data export option (1-3):");
 
                         sDataExportset = Console.ReadLine();
 
@@ -173,10 +182,73 @@ namespace VSCapture
                         }
                     }
 
+                    if (nDataExportset == 3)
+                    {
+                        if (parser.Arguments.ContainsKey("devid"))
+                        {
+                            DeviceID = parser.Arguments["devid"][0];
+                        }
+                        else
+                        {
+                            Console.Write("Enter Device ID/Name:");
+                            DeviceID = Console.ReadLine();
+
+                        }
+
+                        if (parser.Arguments.ContainsKey("url"))
+                        {
+                            MQTTUrl = parser.Arguments["url"][0];
+                        }
+                        else
+                        {
+                            Console.Write("Enter MQTT WebSocket Server URL(ws://):");
+                            MQTTUrl = Console.ReadLine();
+
+                        }
+
+                        if (parser.Arguments.ContainsKey("topic"))
+                        {
+                            MQTTtopic = parser.Arguments["topic"][0];
+                        }
+                        else
+                        {
+                            Console.Write("Enter MQTT Topic:");
+                            MQTTtopic = Console.ReadLine();
+
+                        }
+
+                        if (parser.Arguments.ContainsKey("user"))
+                        {
+                            MQTTuser = parser.Arguments["user"][0];
+                        }
+                        else
+                        {
+                            Console.Write("Enter MQTT Username:");
+                            MQTTuser = Console.ReadLine();
+
+                        }
+
+                        if (parser.Arguments.ContainsKey("passw"))
+                        {
+                            MQTTpassw = parser.Arguments["passw"][0];
+                        }
+                        else
+                        {
+                            Console.Write("Enter MQTT Password:");
+                            MQTTpassw = Console.ReadLine();
+
+                        }
+
+                    }
+
                     _serialPort.m_DeviceID = DeviceID;
                     _serialPort.m_jsonposturl = JSONPostUrl;
+                    _serialPort.m_MQTTUrl = MQTTUrl;
+                    _serialPort.m_MQTTtopic = MQTTtopic;
+                    _serialPort.m_MQTTuser = MQTTuser;
+                    _serialPort.m_MQTTpassw = MQTTpassw;
 
-                    if (nDataExportset > 0 && nDataExportset < 3) _serialPort.m_dataexportset = nDataExportset;
+                    if (nDataExportset > 0 && nDataExportset < 4) _serialPort.m_dataexportset = nDataExportset;
 
 
                     if (parser.Arguments.ContainsKey("waveset"))
@@ -194,8 +266,12 @@ namespace VSCapture
                         Console.WriteLine("4. ECG1, ECG2");
                         Console.WriteLine("5. EEG1, EEG2, EEG3, EEG4");
                         Console.WriteLine("6. ECG1, ECG2, ECG3");
+                        Console.WriteLine("7. ECG1, INVP1, INVP2, INVP3");
+                        Console.WriteLine("8. INVP1, INVP2, INVP3, INVP4, INVP5, INVP6");
+                        Console.WriteLine("9. ECG1, INVP1, PLETH, ENTROPY");
+                        Console.WriteLine("10. ECG1, BIS");
                         Console.WriteLine();
-                        Console.Write("Choose Waveform data Transmission set (0-6):");
+                        Console.Write("Choose Waveform data Transmission set (0-10):");
 
                         sWaveformSet = Console.ReadLine();
                         
@@ -212,13 +288,15 @@ namespace VSCapture
                     Console.WriteLine("Data will be written to CSV file AS3ExportData.csv in same folder");
 
                     //_serialPort.RequestTransfer(DataConstants.DRI_PH_DISPL, nInterval); // Add Request Transmission
-								
-                    //_serialPort.RequestTransfer(DataConstants.DRI_PH_DISPL, -1); // Add Single Request Transmission
-					
-					//_serialPort.RequestTransfer(DataConstants.DRI_PH_60S_TREND, 60); // Add Trend Request Transmission
 
-					//Request transfer based on the DRI level of the monitor
-					_serialPort.RequestTransfer(DataConstants.DRI_PH_DISPL, nInterval, DataConstants.DRI_LEVEL_2005); // Add Request Transmission
+                    //_serialPort.RequestTransfer(DataConstants.DRI_PH_DISPL, -1); // Add Single Request Transmission
+
+                    //_serialPort.RequestTransfer(DataConstants.DRI_PH_60S_TREND, 60); // Add Trend Request Transmission
+
+                    //Request transfer based on the DRI level of the monitor
+                    _serialPort.RequestTransfer(DataConstants.DRI_PH_DISPL, nInterval, DataConstants.DRI_LEVEL_2015); // Add Request Transmission
+                    _serialPort.RequestTransfer(DataConstants.DRI_PH_DISPL, nInterval, DataConstants.DRI_LEVEL_2009); // Add Request Transmission
+                    _serialPort.RequestTransfer(DataConstants.DRI_PH_DISPL, nInterval, DataConstants.DRI_LEVEL_2005); // Add Request Transmission
 					_serialPort.RequestTransfer(DataConstants.DRI_PH_DISPL, nInterval, DataConstants.DRI_LEVEL_2003); // Add Request Transmission
 					_serialPort.RequestTransfer(DataConstants.DRI_PH_DISPL, nInterval, DataConstants.DRI_LEVEL_2001); // Add Request Transmission
 					
@@ -238,8 +316,10 @@ namespace VSCapture
 	                    Console.WriteLine("Requesting Waveform data from monitor");
 						Console.WriteLine("Waveform data will be written to multiple CSV files in same folder");
 
-						_serialPort.RequestMultipleWaveTransfer ( WaveTrtype, DataConstants.WF_REQ_CONT_START, DataConstants.DRI_LEVEL_2005);
-						_serialPort.RequestMultipleWaveTransfer ( WaveTrtype, DataConstants.WF_REQ_CONT_START, DataConstants.DRI_LEVEL_2003);
+                        _serialPort.RequestMultipleWaveTransfer(WaveTrtype, DataConstants.WF_REQ_CONT_START, DataConstants.DRI_LEVEL_2015);
+                        _serialPort.RequestMultipleWaveTransfer ( WaveTrtype, DataConstants.WF_REQ_CONT_START, DataConstants.DRI_LEVEL_2009);
+                        _serialPort.RequestMultipleWaveTransfer(WaveTrtype, DataConstants.WF_REQ_CONT_START, DataConstants.DRI_LEVEL_2005);
+                        _serialPort.RequestMultipleWaveTransfer ( WaveTrtype, DataConstants.WF_REQ_CONT_START, DataConstants.DRI_LEVEL_2003);
 						_serialPort.RequestMultipleWaveTransfer ( WaveTrtype, DataConstants.WF_REQ_CONT_START, DataConstants.DRI_LEVEL_2001);
 					}
                 }
@@ -375,6 +455,34 @@ namespace VSCapture
                 WaveTrtype[2] = DataConstants.DRI_WF_ECG3;
                 WaveTrtype[3] = DataConstants.DRI_EOL_SUBR_LIST;
                 break;
+            case 7:
+                WaveTrtype[0] = DataConstants.DRI_WF_ECG1;
+                WaveTrtype[1] = DataConstants.DRI_WF_INVP1;
+                WaveTrtype[2] = DataConstants.DRI_WF_INVP2;
+                WaveTrtype[3] = DataConstants.DRI_WF_INVP3;
+                WaveTrtype[4] = DataConstants.DRI_EOL_SUBR_LIST;
+                break;
+            case 8:
+                WaveTrtype[0] = DataConstants.DRI_WF_INVP1;
+                WaveTrtype[1] = DataConstants.DRI_WF_INVP2;
+                WaveTrtype[2] = DataConstants.DRI_WF_INVP3;
+                WaveTrtype[3] = DataConstants.DRI_WF_INVP4;
+                WaveTrtype[4] = DataConstants.DRI_WF_INVP5;
+                WaveTrtype[5] = DataConstants.DRI_WF_INVP6;
+                WaveTrtype[6] = DataConstants.DRI_EOL_SUBR_LIST;
+                break;
+            case 9:
+                WaveTrtype[0] = DataConstants.DRI_WF_ECG1;
+                WaveTrtype[1] = DataConstants.DRI_WF_INVP1;
+                WaveTrtype[2] = DataConstants.DRI_WF_PLETH;
+                WaveTrtype[3] = DataConstants.DRI_WF_ENT_100;
+                WaveTrtype[4] = DataConstants.DRI_EOL_SUBR_LIST;
+                break;
+            case 10:
+                WaveTrtype[0] = DataConstants.DRI_WF_ECG1;
+                WaveTrtype[1] = DataConstants.DRI_WF_EEG_BIS;
+                WaveTrtype[2] = DataConstants.DRI_EOL_SUBR_LIST;
+                break;
             default:
 				WaveTrtype [0] = DataConstants.DRI_WF_ECG1;
 				WaveTrtype [1] = DataConstants.DRI_WF_INVP1;
@@ -408,9 +516,14 @@ namespace VSCapture
             {
                 if (arg.StartsWith("-", StringComparison.InvariantCulture))
                 {
-                    if (currentName != "")
+                    if (currentName != "" && values.Count != 0)
                         Arguments[currentName] = values.ToArray();
 
+                    else
+                    {
+                        values.Add("");
+                        Arguments[currentName] = values.ToArray();
+                    }
                     values.Clear();
                     currentName = arg.Substring(1);
                 }

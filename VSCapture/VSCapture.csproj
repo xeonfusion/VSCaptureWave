@@ -9,7 +9,8 @@
     <OutputType>Exe</OutputType>
     <RootNamespace>VSCapture</RootNamespace>
     <AssemblyName>VSCapture</AssemblyName>
-    <TargetFrameworkVersion>v4.7.1</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.5.2</TargetFrameworkVersion>
+    <TargetFrameworkProfile />
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|x86' ">
     <DebugSymbols>true</DebugSymbols>
@@ -35,6 +36,12 @@
     <Reference Include="System" />
     <Reference Include="System.Runtime.Serialization" />
     <Reference Include="System.Xml" />
+    <Reference Include="MQTTnet">
+      <HintPath>..\packages\MQTTnet.3.0.16\lib\net452\MQTTnet.dll</HintPath>
+    </Reference>
+    <Reference Include="MQTTnet.Extensions.ManagedClient">
+      <HintPath>..\packages\MQTTnet.Extensions.ManagedClient.3.0.16\lib\net452\MQTTnet.Extensions.ManagedClient.dll</HintPath>
+    </Reference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Main.cs" />
@@ -45,6 +52,7 @@
     <Compile Include="Class2.cs" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="app.config" />
     <None Include="packages.config" />
   </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
