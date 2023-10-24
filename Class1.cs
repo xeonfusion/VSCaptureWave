@@ -966,17 +966,37 @@ namespace VSCaptureWave
 
         public void ShowExt1Ext2Ext3SubRecord(dri_phdb driSR)
         {
-            short so1 = driSR.ext1.ecg12.stII;
-            short so2 = driSR.ext1.ecg12.stV5;
-            short so3 = driSR.ext1.ecg12.stAVL;
+            short so1_I = driSR.ext1.ecg12.stI;
+            short so1_II = driSR.ext1.ecg12.stII;
+            short so1_III = driSR.ext1.ecg12.stIII;
+
+            short so2_V1 = driSR.ext1.ecg12.stV1;
+            short so2_V2 = driSR.ext1.ecg12.stV2;
+            short so2_V3 = driSR.ext1.ecg12.stV3;
+            short so2_V4 = driSR.ext1.ecg12.stV4;
+            short so2_V5 = driSR.ext1.ecg12.stV5;
+            short so2_V6 = driSR.ext1.ecg12.stV6;
+
+            short so3_AVL = driSR.ext1.ecg12.stAVL;
+            short so3_AVR = driSR.ext1.ecg12.stAVR;
+            short so3_AVF = driSR.ext1.ecg12.stAVF;
 
             string pathcsv = Path.Combine(Directory.GetCurrentDirectory(), "S5DataExport.csv");
 
-            string s1 = ValidateAddData("ST_II", so1, 0.01, false, "{0:0.00}");
+            string s1_I = ValidateAddData("ST_I", so1_I, 0.01, false, "{0:0.00}");
+            string s1_II = ValidateAddData("ST_II", so1_II, 0.01, false, "{0:0.00}");
+            string s1_III = ValidateAddData("ST_II", so1_III, 0.01, false, "{0:0.00}");
 
-            string s2 = ValidateAddData("ST_V5", so2, 0.01, false, "{0:0.00}");
+            string s2_V1 = ValidateAddData("ST_V1", so2_V1, 0.01, false, "{0:0.00}");
+            string s2_V2 = ValidateAddData("ST_V2", so2_V2, 0.01, false, "{0:0.00}");
+            string s2_V3 = ValidateAddData("ST_V3", so2_V3, 0.01, false, "{0:0.00}");
+            string s2_V4 = ValidateAddData("ST_V4", so2_V4, 0.01, false, "{0:0.00}");
+            string s2_V5 = ValidateAddData("ST_V5", so2_V5, 0.01, false, "{0:0.00}");
+            string s2_V6 = ValidateAddData("ST_V6", so2_V6, 0.01, false, "{0:0.00}");
 
-            string s3 = ValidateAddData("ST_aVL", so3, 0.01, false, "{0:0.00}");
+            string s3_AVL = ValidateAddData("ST_aVL", so3_AVL, 0.01, false, "{0:0.00}");
+            string s3_AVR = ValidateAddData("ST_aVR", so3_AVR, 0.01, false, "{0:0.00}");
+            string s3_AVF = ValidateAddData("ST_aVF", so3_AVF, 0.01, false, "{0:0.00}");
 
             short so4 = driSR.ext2.ent.eeg_ent;
             short so5 = driSR.ext2.ent.emg_ent;
@@ -994,7 +1014,9 @@ namespace VSCaptureWave
             ValidateAddData("BIS_EMG", so9, 1, true);
             ValidateAddData("BIS_SQI", so10, 1, true);
 
-            Console.WriteLine("ST II {0:0.0}mm ST V5 {1:0.0}mm ST aVL {2:0.0}mm", s1, s2, s3);
+            Console.WriteLine("ST I {0:0.0}mm ST II {0:0.0}mm ST III {0:0.0}mm ST aVL {2:0.0}mm", s1_I, s1_II, s1_III, s2_V5, s3_AVL);
+            Console.WriteLine("ST V1 {1:0.0}mm ST V2 {1:0.0}mm ST V3 {1:0.0}mm ST V4 {1:0.0}mm ST V5 {1:0.0}mm ST V6 {1:0.0}mm", 
+                s2_V1, s2_V2, s2_V3, s2_V4, s2_V5, s2_V6);
 
             short so11 = driSR.ext2.nmt2.count;
             short so12 = driSR.ext2.nmt2.nmt_t1;
