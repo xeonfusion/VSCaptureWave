@@ -34,6 +34,8 @@ using MQTTnet;
 using MQTTnet.Client.Options;
 using MQTTnet.Extensions.ManagedClient;
 using MQTTnet.Client.Connecting;
+using System.Net.Http.Headers;
+using System.Reflection.Metadata;
 
 namespace VSCaptureWave
 {
@@ -68,7 +70,11 @@ namespace VSCaptureWave
         private bool m_transmissionstart = true;
 
         public string m_DeviceID;
+
         public string m_jsonposturl;
+        public string m_jsonpostUser;
+        public string m_jsonpostPassw;
+        public bool m_jsonpostKafkaProxy;
 
         public string m_MQTTUrl;
         public string m_MQTTtopic;
@@ -585,7 +591,7 @@ namespace VSCaptureWave
                     }
 
                     // Unix timestamp is seconds past epoch 
-                    DateTime dtDateTime = new DateTime(1970, 1, 1, 0, 0, 0, 0);
+                    DateTime dtDateTime = new(1970, 1, 1, 0, 0, 0, 0);
                     //dtDateTime = dtDateTime.AddSeconds(unixtime).ToLocalTime();
                     dtDateTime = dtDateTime.AddSeconds(unixtime);
                     //m_strTimestamp = dtDateTime.ToString("G", DateTimeFormatInfo.InvariantInfo);
@@ -597,17 +603,20 @@ namespace VSCaptureWave
                     ShowBasicSubRecord(phdata_ptr);
                     ShowExt1Ext2Ext3SubRecord(phdata_ptr);
 
-                    if (m_dataexportset == 2) ExportNumValListToJSON();
-                    if (m_dataexportset == 3) ExportNumValListToMQTT("Numeric");
-                    if (m_dataexportset != 3)
+                    switch (m_dataexportset)
                     {
-                        SaveNumericValueListRows();
+                        case 1:
+                            SaveNumericValueListRows();
+                            break;
+                        case 2:
+                            ExportNumValListToJSON();
+                            break;
+                        case 3:
+                            ExportNumValListToMQTT("Numeric");
+                            break;
                     }
-
                 }
             }
-
-
         }
 
         public void ReadMultipleWaveSubRecords()
@@ -1015,7 +1024,7 @@ namespace VSCaptureWave
             ValidateAddData("BIS_SQI", so10, 1, true);
 
             Console.WriteLine("ST I {0:0.0}mm ST II {0:0.0}mm ST III {0:0.0}mm ST aVL {2:0.0}mm", s1_I, s1_II, s1_III, s2_V5, s3_AVL);
-            Console.WriteLine("ST V1 {1:0.0}mm ST V2 {1:0.0}mm ST V3 {1:0.0}mm ST V4 {1:0.0}mm ST V5 {1:0.0}mm ST V6 {1:0.0}mm", 
+            Console.WriteLine("ST V1 {1:0.0}mm ST V2 {1:0.0}mm ST V3 {1:0.0}mm ST V4 {1:0.0}mm ST V5 {1:0.0}mm ST V6 {1:0.0}mm",
                 s2_V1, s2_V2, s2_V3, s2_V4, s2_V5, s2_V6);
 
             short so11 = driSR.ext2.nmt2.count;
@@ -1273,7 +1282,8 @@ namespace VSCaptureWave
 
         public void ExportNumValListToJSON()
         {
-            string serializedJSON = JsonSerializer.Serialize(m_NumericValList, new JsonSerializerOptions { IncludeFields = true });
+            object dataToSerialize = m_jsonpostKafkaProxy ? new KafkaMessage(m_DeviceID, m_NumericValList) : m_NumericValList;
+            string serializedJSON = JsonSerializer.Serialize(dataToSerialize, new JsonSerializerOptions { IncludeFields = true });
 
             try
             {
@@ -1299,11 +1309,22 @@ namespace VSCaptureWave
         {
             using (HttpClient client = new HttpClient())
             {
-                ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls | SecurityProtocolType.Tls11 | SecurityProtocolType.Tls12;
+                ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls | SecurityProtocolType.Tls11 | SecurityProtocolType.Tls12 | SecurityProtocolType.Tls13;
+                client.BaseAddress = new Uri(m_jsonposturl);
 
-                var data = new StringContent(postData, Encoding.UTF8, "application/json");
+                var requestMessage = new HttpRequestMessage(HttpMethod.Post, (string)null);
 
-                var response = await client.PostAsync(m_jsonposturl, data);
+                if (m_jsonpostUser != null && m_jsonpostPassw != null)
+                {
+                    var authenticationString = $"{m_jsonpostUser}:{m_jsonpostPassw}";
+                    var base64EncodedAuthenticationString = Convert.ToBase64String(Encoding.ASCII.GetBytes(authenticationString));
+                    requestMessage.Headers.Authorization = new AuthenticationHeaderValue("Basic", base64EncodedAuthenticationString);
+                }
+
+                var data = new StringContent(postData, Encoding.UTF8, m_jsonpostKafkaProxy ? "application/vnd.kafka.json.v2+json" : "application /json");
+                requestMessage.Content = data;
+
+                var response = await client.SendAsync(requestMessage);
                 response.EnsureSuccessStatusCode();
 
                 string result = await response.Content.ReadAsStringAsync();
@@ -1336,7 +1357,8 @@ namespace VSCaptureWave
 
                 });
 
-                task.ContinueWith(antecedent => {
+                task.ContinueWith(antecedent =>
+                {
                     if (antecedent.Status == TaskStatus.RanToCompletion)
                     {
                         Task.Run(async () =>

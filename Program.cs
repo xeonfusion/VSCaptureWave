@@ -24,7 +24,12 @@ namespace VSCaptureWave
     {
         static EventHandler dataEvent;
         public static string DeviceID;
+
         public static string JSONPostUrl;
+        public static string JSONPostUser;
+        public static string JSONPostPassw;
+        public static string JSONPostKafka;
+
         public static string MQTTUrl;
         public static string MQTTtopic;
         public static string MQTTuser;
@@ -137,104 +142,140 @@ namespace VSCaptureWave
                         Console.WriteLine();
                         Console.WriteLine("Data export options:");
                         Console.WriteLine("1. Export as CSV files");
-                        Console.WriteLine("2. Export as CSV files and JSON to URL");
+                        Console.WriteLine("2. Export as JSON to URL");
                         Console.WriteLine("3. Export as MQTT to URL");
                         Console.WriteLine();
                         Console.Write("Choose data export option (1-3):");
 
                         sDataExportset = Console.ReadLine();
-
                     }
 
                     int nDataExportset = 1;
                     if (sDataExportset != "") nDataExportset = Convert.ToInt32(sDataExportset);
 
-                    if (nDataExportset == 2)
+                    switch (nDataExportset)
                     {
-                        if (parser.Arguments.ContainsKey("devid"))
-                        {
-                            DeviceID = parser.Arguments["devid"][0];
-                        }
-                        else
-                        {
-                            Console.Write("Enter Device ID/Name:");
-                            DeviceID = Console.ReadLine();
+                        case 2:
+                            {
+                                if (parser.Arguments.ContainsKey("devid"))
+                                {
+                                    DeviceID = parser.Arguments["devid"][0];
+                                }
+                                else
+                                {
+                                    Console.Write("Enter Device ID/Name:");
+                                    DeviceID = Console.ReadLine();
 
-                        }
+                                }
 
-                        if (parser.Arguments.ContainsKey("url"))
-                        {
-                            JSONPostUrl = parser.Arguments["url"][0];
-                        }
-                        else
-                        {
-                            Console.Write("Enter JSON Data Export URL(http://):");
-                            JSONPostUrl = Console.ReadLine();
+                                if (parser.Arguments.ContainsKey("url"))
+                                {
+                                    JSONPostUrl = parser.Arguments["url"][0];
+                                }
+                                else
+                                {
+                                    Console.Write("Enter JSON Data Export URL(http://):");
+                                    JSONPostUrl = Console.ReadLine();
+                                }
 
-                        }
-                    }
+                                if (parser.Arguments.ContainsKey("user"))
+                                {
+                                    JSONPostUser = parser.Arguments["user"][0];
+                                }
+                                else
+                                {
+                                    Console.Write("Enter JSON Server Username:");
+                                    JSONPostUser = Console.ReadLine();
+                                }
 
-                    if (nDataExportset == 3)
-                    {
-                        if (parser.Arguments.ContainsKey("devid"))
-                        {
-                            DeviceID = parser.Arguments["devid"][0];
-                        }
-                        else
-                        {
-                            Console.Write("Enter Device ID/Name:");
-                            DeviceID = Console.ReadLine();
+                                if (parser.Arguments.ContainsKey("passw"))
+                                {
+                                    JSONPostPassw = parser.Arguments["passw"][0];
+                                }
+                                else
+                                {
+                                    Console.Write("Enter JSON Server Password:");
+                                    JSONPostPassw = Console.ReadLine();
+                                }
 
-                        }
+                                if (parser.Arguments.ContainsKey("kafka"))
+                                {
+                                    JSONPostKafka = parser.Arguments["kafka"][0];
+                                }
+                                else
+                                {
+                                    Console.Write("Enable Kafka REST Proxy mode (y/n)?");
+                                    JSONPostKafka = Console.ReadLine();
+                                }
+                            }
+                            break;
+                        case 3:
+                            {
 
-                        if (parser.Arguments.ContainsKey("url"))
-                        {
-                            MQTTUrl = parser.Arguments["url"][0];
-                        }
-                        else
-                        {
-                            Console.Write("Enter MQTT WebSocket Server URL(ws://):");
-                            MQTTUrl = Console.ReadLine();
+                                if (parser.Arguments.ContainsKey("devid"))
+                                {
+                                    DeviceID = parser.Arguments["devid"][0];
+                                }
+                                else
+                                {
+                                    Console.Write("Enter Device ID/Name:");
+                                    DeviceID = Console.ReadLine();
 
-                        }
+                                }
 
-                        if (parser.Arguments.ContainsKey("topic"))
-                        {
-                            MQTTtopic = parser.Arguments["topic"][0];
-                        }
-                        else
-                        {
-                            Console.Write("Enter MQTT Topic:");
-                            MQTTtopic = Console.ReadLine();
+                                if (parser.Arguments.ContainsKey("url"))
+                                {
+                                    MQTTUrl = parser.Arguments["url"][0];
+                                }
+                                else
+                                {
+                                    Console.Write("Enter MQTT WebSocket Server URL(ws://):");
+                                    MQTTUrl = Console.ReadLine();
 
-                        }
+                                }
 
-                        if (parser.Arguments.ContainsKey("user"))
-                        {
-                            MQTTuser = parser.Arguments["user"][0];
-                        }
-                        else
-                        {
-                            Console.Write("Enter MQTT Username:");
-                            MQTTuser = Console.ReadLine();
+                                if (parser.Arguments.ContainsKey("topic"))
+                                {
+                                    MQTTtopic = parser.Arguments["topic"][0];
+                                }
+                                else
+                                {
+                                    Console.Write("Enter MQTT Topic:");
+                                    MQTTtopic = Console.ReadLine();
 
-                        }
+                                }
 
-                        if (parser.Arguments.ContainsKey("passw"))
-                        {
-                            MQTTpassw = parser.Arguments["passw"][0];
-                        }
-                        else
-                        {
-                            Console.Write("Enter MQTT Password:");
-                            MQTTpassw = Console.ReadLine();
+                                if (parser.Arguments.ContainsKey("user"))
+                                {
+                                    MQTTuser = parser.Arguments["user"][0];
+                                }
+                                else
+                                {
+                                    Console.Write("Enter MQTT Username:");
+                                    MQTTuser = Console.ReadLine();
 
-                        }
+                                }
 
+                                if (parser.Arguments.ContainsKey("passw"))
+                                {
+                                    MQTTpassw = parser.Arguments["passw"][0];
+                                }
+                                else
+                                {
+                                    Console.Write("Enter MQTT Password:");
+                                    MQTTpassw = Console.ReadLine();
+
+                                }
+                            }
+                            break;
                     }
 
                     _serialPort.m_DeviceID = DeviceID;
                     _serialPort.m_jsonposturl = JSONPostUrl;
+                    _serialPort.m_jsonpostUser = JSONPostUser;
+                    _serialPort.m_jsonpostPassw = JSONPostPassw;
+                    _serialPort.m_jsonpostKafkaProxy = JSONPostKafka != null && string.Equals("y", JSONPostKafka, StringComparison.OrdinalIgnoreCase);
+
                     _serialPort.m_MQTTUrl = MQTTUrl;
                     _serialPort.m_MQTTtopic = MQTTtopic;
                     _serialPort.m_MQTTuser = MQTTuser;
