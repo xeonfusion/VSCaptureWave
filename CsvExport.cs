@@ -57,7 +57,7 @@ namespace VSCaptureWave
                 {
                     if (String.IsNullOrEmpty(dataValue.DecimalFormat))
                     {
-                        strbuildvalues.Append(dataValue.Value);
+                        strbuildvalues.Append(dataValue.Value is double && ((double)dataValue.Value) != Double.NaN ? dataValue : "-");
                     }
                     else
                     {

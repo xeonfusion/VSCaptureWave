@@ -21,7 +21,7 @@ namespace VSCaptureWave
         [JsonPropertyName("values")]
         public List<ReceivedDataValue> Values;
         [JsonPropertyName("curves")]
-        public List<ReceivedDataValue> Curves;
+        public List<ReceivedWaveData> Curves;
         public ReceivedDataBlock(string deviceId, uint unixtime)
         {
             this.Id = deviceId + "-" + Guid.NewGuid();
@@ -29,6 +29,14 @@ namespace VSCaptureWave
             this.Time = this.Time.AddSeconds(unixtime).ToLocalTime();
             this.DeviceId = deviceId;
             this.Type = DataType.DATA;
+        }
+
+        public ReceivedDataBlock(string deviceId, List<ReceivedWaveData> m_WaveValResultList)
+        {
+            this.Id = deviceId + "-" + Guid.NewGuid();
+            this.DeviceId = deviceId;
+            this.Type = DataType.CURVE;
+            this.Curves = m_WaveValResultList;
         }
 
         public bool IsEmpty()

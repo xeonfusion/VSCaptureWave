@@ -37,7 +37,7 @@ namespace VSCaptureWave
 
         static void Main(string[] args)
         {
-            Console.WriteLine("VitalSignsCaptureWave v1.011 (C)2015-22 John George K.");
+            Console.WriteLine("VitalSignsCaptureWave v1.012 (C)2015-22 John George K., 2023 Evgenii Balakhonov");
             Console.WriteLine("For command line usage: -help");
             Console.WriteLine();
 
@@ -53,14 +53,16 @@ namespace VSCaptureWave
             if (parser.Arguments.ContainsKey("help"))
             {
                 Console.WriteLine("VSCaptureWave.exe -port [portname] -interval [number] -waveset [number]");
-                Console.WriteLine(" -waveset[number] -export[number] -devid[name] -url [name]");
+                Console.WriteLine("-waveset [number] -export [number] -devid [name] -url [name]");
                 Console.WriteLine("-port <Set serial port name>");
                 Console.WriteLine("-interval <Set numeric transmission interval>");
                 Console.WriteLine("-waveset <Set waveform transmission set option>");
                 Console.WriteLine("-export <Set data export CSV, MQTT or JSON option>");
+                Console.WriteLine("-exportDataFile <Set file name for CSV export");                
                 Console.WriteLine("-devid <Set device ID for MQTT or JSON export>");
                 Console.WriteLine("-url <Set MQTT or JSON export url>");
                 Console.WriteLine("-topic <Set topic for MQTT export>");
+                Console.WriteLine("-kafka <Set Kafka REST Proxy mode (y/n)");
                 Console.WriteLine("-user <Set username for MQTT export>");
                 Console.WriteLine("-passw <Set password for MQTT export>");
                 Console.WriteLine();

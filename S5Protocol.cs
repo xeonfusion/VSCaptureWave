@@ -586,8 +586,6 @@ namespace VSCaptureWave
                     //dtDateTime = dtDateTime.AddSeconds(unixtime).ToLocalTime();
                     dtDateTime = dtDateTime.AddSeconds(unixtime);
 
-                    string dtime = dtDateTime.ToLongTimeString();
-
                     //Read upto 8 subrecords
                     for (int i = 0; i < 8 && (srtypeArray[i] != DataConstants.DRI_EOL_SUBR_LIST); i++)
                     {
@@ -648,7 +646,7 @@ namespace VSCaptureWave
                     CsvExport.ExportWaveToCSV(this.m_WaveValResultList);
                     break;
                 case 2:
-                    SendWaveToJsonServer();
+                    JsonServerClient.SendBlock(new ReceivedDataBlock(m_DeviceID, this.m_WaveValResultList));
                     break;
             }
         }
@@ -1003,14 +1001,6 @@ namespace VSCaptureWave
                 return (decimalshift = 0.1);
             else return decimalshift;
 
-        }
-
-        public void SendWaveToJsonServer()
-        {
-            foreach (ReceivedWaveData WavValResult in m_WaveValResultList)
-            {
-                // TODO 
-            }
         }
 
         public bool ByteArrayToFile(string _FileName, byte[] _ByteArray, int nWriteLength)
