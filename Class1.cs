@@ -15,80 +15,48 @@
     You should have received a copy of the GNU Lesser General Public License
     along with VitalSignsCapture.  If not, see <http://www.gnu.org/licenses/>.*/
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Text;
 using System.IO.Ports;
-using System.IO;
 using System.Runtime.InteropServices;
-using System.Threading;
 using System.Globalization;
-using System.Net;
-using System.Threading.Tasks;
-using System.Net.Http;
-using System.Text.Json;
-
-using MQTTnet;
-//using MQTTnet.Client;
-using MQTTnet.Client.Options;
-using MQTTnet.Extensions.ManagedClient;
-using MQTTnet.Client.Connecting;
-using System.Net.Http.Headers;
-using System.Reflection.Metadata;
+using log4net;
 
 namespace VSCaptureWave
 {
     public sealed class DSerialPort : SerialPort
     {
+        private static readonly ILog log = LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType);
+
         // Main Datex Record variables
-        private datex_record_req_type request_ptr = new datex_record_req_type();
-        private datex_record_wave_req_type wave_request_ptr = new datex_record_wave_req_type();
-        public List<datex_record_type> RecordList = new List<datex_record_type>();
-        public List<byte[]> FrameList = new List<byte[]>();
+        private datex_record_req_type request_ptr = new();
+        private datex_record_wave_req_type wave_request_ptr = new();
+        public List<datex_record_type> RecordList = new();
+        public List<byte[]> FrameList = new();
         private int DPortBufSize;
         public byte[] DPort_rxbuf;
-        private datex_tx_type DPort_txbuf = new datex_tx_type();
-        private datex_wave_tx_type DPort_wave_txbuf = new datex_wave_tx_type();
+        private datex_tx_type DPort_txbuf = new();
+        private datex_wave_tx_type DPort_wave_txbuf = new();
 
         private bool m_fstart = true;
         private bool m_storestart = false;
         private bool m_storeend = false;
         private bool m_bitshiftnext = false;
-        private List<byte> m_bList = new List<byte>();
+        private List<byte> m_bList = new();
 
-        public List<NumericValResult> m_NumericValList = new List<NumericValResult>();
-        public List<string> m_NumValHeaders = new List<string>();
-        public StringBuilder m_strbuildvalues = new StringBuilder();
-        public StringBuilder m_strbuildheaders = new StringBuilder();
+        public ReceivedDataBlock m_ResultDataBlock = null;
 
-        public List<WaveValResult> m_WaveValResultList = new List<WaveValResult>();
-        public StringBuilder m_strbuildwavevalues = new StringBuilder();
+        public CsvExport CsvExport = null;
+        public JsonServerClient JsonServerClient = null;
+        public MQTTClient MQTTClient = null;
+
+        public List<WaveValResult> m_WaveValResultList = new();
+        public StringBuilder m_strbuildwavevalues = new();
 
         public string m_strTimestamp;
         public int m_dataexportset = 1;
         private bool m_transmissionstart = true;
 
         public string m_DeviceID;
-
-        public string m_jsonposturl;
-        public string m_jsonpostUser;
-        public string m_jsonpostPassw;
-        public bool m_jsonpostKafkaProxy;
-
-        public string m_MQTTUrl;
-        public string m_MQTTtopic;
-        public string m_MQTTuser;
-        public string m_MQTTpassw;
-        public string m_MQTTclientId = Guid.NewGuid().ToString();
-
-        public class NumericValResult
-        {
-            public string Timestamp;
-            public string PhysioID;
-            public string Value;
-            public string DeviceID;
-        }
 
         public class WaveValResult
         {
@@ -99,11 +67,10 @@ namespace VSCaptureWave
             public double Unitshift;
         }
 
-
         //Create a singleton serialport subclass
         private static volatile DSerialPort DPort = null;
 
-        public static DSerialPort getInstance
+        public static DSerialPort GetInstance
         {
 
             get
@@ -149,7 +116,7 @@ namespace VSCaptureWave
 
         }
 
-        public void WriteBuffer(byte[] txbuf)
+        public static void WriteBuffer(byte[] txbuf)
         {
             byte[] framebyte = { DataConstants.CTRLCHAR, (DataConstants.FRAMECHAR & DataConstants.BIT5COMPL), 0 };
             byte[] ctrlbyte = { DataConstants.CTRLCHAR, (DataConstants.CTRLCHAR & DataConstants.BIT5COMPL), 0 };
@@ -219,9 +186,8 @@ namespace VSCaptureWave
             }
             catch (Exception ex)
             {
-                Console.WriteLine("Error opening/writing to serial port :: " + ex.Message, "Error!");
+                log.Error($"Error opening/writing to serial port :: {ex.Message} Error!", ex);
             }
-
         }
 
         public void ClearReadBuffer()
@@ -275,9 +241,8 @@ namespace VSCaptureWave
             }
             catch (Exception ex)
             {
-                Console.WriteLine("Error opening/writing to serial port :: " + ex.Message, "Error!");
+               log.Error($"Error opening/writing to serial port :: {ex.Message} Error!", ex);
             }
-
 
             return bytesreadtotal;
         }
@@ -420,8 +385,6 @@ namespace VSCaptureWave
             }
 
             m_transmissionstart = true;
-
-
         }
 
         public void RequestWaveTransfer(byte TrWavetype, short TrSignaltype, byte DRIlevel)
@@ -590,15 +553,7 @@ namespace VSCaptureWave
                         }
                     }
 
-                    // Unix timestamp is seconds past epoch 
-                    DateTime dtDateTime = new(1970, 1, 1, 0, 0, 0, 0);
-                    //dtDateTime = dtDateTime.AddSeconds(unixtime).ToLocalTime();
-                    dtDateTime = dtDateTime.AddSeconds(unixtime);
-                    //m_strTimestamp = dtDateTime.ToString("G", DateTimeFormatInfo.InvariantInfo);
-                    m_strTimestamp = dtDateTime.ToString("dd-MM-yyyy HH:mm:ss", CultureInfo.InvariantCulture);
-
-                    Console.WriteLine();
-                    Console.WriteLine("Time:{0}", dtDateTime.ToString());
+                    m_ResultDataBlock = new(m_DeviceID, unixtime);
 
                     ShowBasicSubRecord(phdata_ptr);
                     ShowExt1Ext2Ext3SubRecord(phdata_ptr);
@@ -606,13 +561,13 @@ namespace VSCaptureWave
                     switch (m_dataexportset)
                     {
                         case 1:
-                            SaveNumericValueListRows();
+                            CsvExport.SaveRow(this.m_ResultDataBlock);
                             break;
                         case 2:
-                            ExportNumValListToJSON();
+                            JsonServerClient.SendBlock(this.m_ResultDataBlock);
                             break;
                         case 3:
-                            ExportNumValListToMQTT("Numeric");
+                            MQTTClient.ExportNumValListToMQTT(this.m_ResultDataBlock);
                             break;
                     }
                 }
@@ -694,8 +649,15 @@ namespace VSCaptureWave
                 }
             }
 
-            ExportWaveToCSV();
-
+            switch (m_dataexportset)
+            {
+                case 1:
+                    ExportWaveToCSV();
+                    break;
+                case 2:
+                    SendWaveToJsonServer();
+                    break;
+            }
         }
 
         public double GetWaveUnitShift(string physioID)
@@ -739,27 +701,27 @@ namespace VSCaptureWave
             short so5 = driSR.basic.SpO2.SpO2;
             short so6 = driSR.basic.co2.et;
 
-            string s1 = ValidateAddData("ECG_HR", so1, 1, true);
+            double? s1 = m_ResultDataBlock.ValidateAndAddData("ECG_HR", so1, 1, true);
 
-            string s2 = ValidateAddData("NIBP_Systolic", so2, 0.01, true);
+            double? s2 = m_ResultDataBlock.ValidateAndAddData("NIBP_Systolic", so2, 0.01, true);
 
-            string s3 = ValidateAddData("NIBP_Diastolic", so3, 0.01, true);
+            double? s3 = m_ResultDataBlock.ValidateAndAddData("NIBP_Diastolic", so3, 0.01, true);
 
-            string s4 = ValidateAddData("NIBP_Mean", so4, 0.01, true);
+            double? s4 = m_ResultDataBlock.ValidateAndAddData("NIBP_Mean", so4, 0.01, true);
 
-            string s5 = ValidateAddData("SpO2", so5, 0.01, true);
+            double? s5 = m_ResultDataBlock.ValidateAndAddData("SpO2", so5, 0.01, true);
 
             double et = (so6 * driSR.basic.co2.amb_press);
-            string s6 = ValidateAddData("ET_CO2", et, 0.00001, true);
+            double? s6 = m_ResultDataBlock.ValidateAndAddData("ET_CO2", et, 0.00001, true);
 
             short so7 = driSR.basic.aa.et;
             short so8 = driSR.basic.aa.fi;
             short so9 = driSR.basic.aa.mac_sum;
             ushort so10 = driSR.basic.aa.hdr.label_info;
 
-            ValidateAddData("AA_ET", so7, 0.01, false, "{0:0.00}");
-            ValidateAddData("AA_FI", so8, 0.01, false, "{0:0.00}");
-            string s9 = ValidateAddData("AA_MAC_SUM", so9, 0.01, false, "{0:0.00}");
+            m_ResultDataBlock.ValidateAndAddData("AA_ET", so7, 0.01, false, "{0:0.00}");
+            m_ResultDataBlock.ValidateAndAddData("AA_FI", so8, 0.01, false, "{0:0.00}");
+            double? s9 = m_ResultDataBlock.ValidateAndAddData("AA_MAC_SUM", so9, 0.01, false, "{0:0.00}");
 
             string s10 = "";
 
@@ -820,12 +782,12 @@ namespace VSCaptureWave
             double so32 = driSR.basic.flow_vol.rr;
 
 
-            ValidateAddData("O2_FI", so11, 0.01, false, "{0:0.00}");
-            ValidateAddData("N2O_FI", so12, 0.01, false, "{0:0.00}");
-            ValidateAddData("N2O_ET", so13, 0.01, false, "{0:0.00}");
-            ValidateAddData("CO2_RR", so14, 1, true);
-            string s15 = ValidateAddData("T1_Temp", so15, 0.01, false, "{0:0.00}");
-            string s16 = ValidateAddData("T2_Temp", so16, 0.01, false, "{0:0.00}");
+            m_ResultDataBlock.ValidateAndAddData("O2_FI", so11, 0.01, false, "{0:0.00}");
+            m_ResultDataBlock.ValidateAndAddData("N2O_FI", so12, 0.01, false, "{0:0.00}");
+            m_ResultDataBlock.ValidateAndAddData("N2O_ET", so13, 0.01, false, "{0:0.00}");
+            m_ResultDataBlock.ValidateAndAddData("CO2_RR", so14, 1, true);
+            double? s15 = m_ResultDataBlock.ValidateAndAddData("T1_Temp", so15, 0.01, false, "{0:0.00}");
+            double? s16 = m_ResultDataBlock.ValidateAndAddData("T2_Temp", so16, 0.01, false, "{0:0.00}");
 
             /*string P1Label = GetInvasivePressureLabel(driSR.basic.p1.hdr.label_info);
             string P2Label = GetInvasivePressureLabel(driSR.basic.p2.hdr.label_info);
@@ -835,31 +797,30 @@ namespace VSCaptureWave
             string P2Label = "P2";
             string P3Label = "P3";
 
-            ValidateAddData(P1Label + "_HR", so17, 1, true);
-            string s18 = ValidateAddData(P1Label + "_Systolic", so18, 0.01, true);
-            string s19 = ValidateAddData(P1Label + "_Diastolic", so19, 0.01, true);
-            string s20 = ValidateAddData(P1Label + "_Mean", so20, 0.01, true);
-            ValidateAddData(P2Label + "_HR", so21, 1, true);
-            string s22 = ValidateAddData(P2Label + "_Systolic", so22, 0.01, true);
-            string s23 = ValidateAddData(P2Label + "_Diastolic", so23, 0.01, true);
-            string s24 = ValidateAddData(P2Label + "_Mean", so24, 0.01, true);
-            ValidateAddData(P3Label + "_HR", so36, 1, true);
-            string s37 = ValidateAddData(P3Label + "_Systolic", so37, 0.01, true);
-            string s38 = ValidateAddData(P3Label + "_Diastolic", so38, 0.01, true);
-            string s39 = ValidateAddData(P3Label + "_Mean", so39, 0.01, true);
+            m_ResultDataBlock.ValidateAndAddData(P1Label + "_HR", so17, 1, true);
+            double? s18 = m_ResultDataBlock.ValidateAndAddData(P1Label + "_Systolic", so18, 0.01, true);
+            double? s19 = m_ResultDataBlock.ValidateAndAddData(P1Label + "_Diastolic", so19, 0.01, true);
+            double? s20 = m_ResultDataBlock.ValidateAndAddData(P1Label + "_Mean", so20, 0.01, true);
+            m_ResultDataBlock.ValidateAndAddData(P2Label + "_HR", so21, 1, true);
+            double? s22 = m_ResultDataBlock.ValidateAndAddData(P2Label + "_Systolic", so22, 0.01, true);
+            double? s23 = m_ResultDataBlock.ValidateAndAddData(P2Label + "_Diastolic", so23, 0.01, true);
+            double? s24 = m_ResultDataBlock.ValidateAndAddData(P2Label + "_Mean", so24, 0.01, true);
+            m_ResultDataBlock.ValidateAndAddData(P3Label + "_HR", so36, 1, true);
+            double? s37 = m_ResultDataBlock.ValidateAndAddData(P3Label + "_Systolic", so37, 0.01, true);
+            double? s38 = m_ResultDataBlock.ValidateAndAddData(P3Label + "_Diastolic", so38, 0.01, true);
+            double? s39 = m_ResultDataBlock.ValidateAndAddData(P3Label + "_Mean", so39, 0.01, true);
 
+            m_ResultDataBlock.ValidateAndAddData("PPeak", so25, 0.01, true);
+            m_ResultDataBlock.ValidateAndAddData("PPlat", so26, 0.01, true);
+            m_ResultDataBlock.ValidateAndAddData("TV_Exp", so27, 0.1, true);
+            m_ResultDataBlock.ValidateAndAddData("TV_Insp", so28, 0.1, true);
+            m_ResultDataBlock.ValidateAndAddData("PEEP", so29, 0.01, true);
+            m_ResultDataBlock.ValidateAndAddData("MV_Exp", so30, 0.01, false, "{0:0.00}");
+            m_ResultDataBlock.ValidateAndAddData("Compliance", so31, 0.01, true);
+            m_ResultDataBlock.ValidateAndAddData("RR", so32, 1, true);
 
-            ValidateAddData("PPeak", so25, 0.01, true);
-            ValidateAddData("PPlat", so26, 0.01, true);
-            ValidateAddData("TV_Exp", so27, 0.1, true);
-            ValidateAddData("TV_Insp", so28, 0.1, true);
-            ValidateAddData("PEEP", so29, 0.01, true);
-            ValidateAddData("MV_Exp", so30, 0.01, false, "{0:0.00}");
-            ValidateAddData("Compliance", so31, 0.01, true);
-            ValidateAddData("RR", so32, 1, true);
-
-            Console.WriteLine("ECG HR {0:d}/min NIBP {1:d}/{2:d}({3:d})mmHg SpO2 {4:d}% ETCO2 {5:d}mmHg", s1, s2, s3, s4, s5, s6);
-            Console.WriteLine("IBP1 {0:d}/{1:d}({2:d})mmHg IBP2 {3:d}/{4:d}({5:d})mmHg MAC {6} T1 {7}°C T2 {8}°C", s18, s19, s20, s22, s23, s24, s9, s15, s16);
+            log.Info(String.Format("ECG HR {0:d}/min NIBP {1:d}/{2:d}({3:d})mmHg SpO2 {4:d}% ETCO2 {5:d}mmHg", s1, s2, s3, s4, s5, s6));
+            log.Info(String.Format("IBP1 {0:d}/{1:d}({2:d})mmHg IBP2 {3:d}/{4:d}({5:d})mmHg MAC {6} T1 {7}°C T2 {8}°C", s18, s19, s20, s22, s23, s24, s9, s15, s16));
 
             short so33 = driSR.basic.nmt.tratio;
             short so34 = driSR.basic.nmt.t1;
@@ -886,8 +847,8 @@ namespace VSCaptureWave
             }
             AddDataString("NMT_MODE", nmtmode);
 
-            ValidateAddData("NMT_TWITCH_RATIO", so33, 0.1, false, "{0:0.00}");
-            ValidateAddData("NMT_T1", so34, 0.1, false);
+            m_ResultDataBlock.ValidateAndAddData("NMT_TWITCH_RATIO", so33, 0.1, false, "{0:0.00}");
+            m_ResultDataBlock.ValidateAndAddData("NMT_T1", so34, 0.1, false);
 
         }
 
@@ -990,22 +951,20 @@ namespace VSCaptureWave
             short so3_AVR = driSR.ext1.ecg12.stAVR;
             short so3_AVF = driSR.ext1.ecg12.stAVF;
 
-            string pathcsv = Path.Combine(Directory.GetCurrentDirectory(), "S5DataExport.csv");
+            double? s1_I = m_ResultDataBlock.ValidateAndAddData("ST_I", so1_I, 0.01, false, "{0:0.00}");
+            double? s1_II = m_ResultDataBlock.ValidateAndAddData("ST_II", so1_II, 0.01, false, "{0:0.00}");
+            double? s1_III = m_ResultDataBlock.ValidateAndAddData("ST_II", so1_III, 0.01, false, "{0:0.00}");
 
-            string s1_I = ValidateAddData("ST_I", so1_I, 0.01, false, "{0:0.00}");
-            string s1_II = ValidateAddData("ST_II", so1_II, 0.01, false, "{0:0.00}");
-            string s1_III = ValidateAddData("ST_II", so1_III, 0.01, false, "{0:0.00}");
+            double? s2_V1 = m_ResultDataBlock.ValidateAndAddData("ST_V1", so2_V1, 0.01, false, "{0:0.00}");
+            double? s2_V2 = m_ResultDataBlock.ValidateAndAddData("ST_V2", so2_V2, 0.01, false, "{0:0.00}");
+            double? s2_V3 = m_ResultDataBlock.ValidateAndAddData("ST_V3", so2_V3, 0.01, false, "{0:0.00}");
+            double? s2_V4 = m_ResultDataBlock.ValidateAndAddData("ST_V4", so2_V4, 0.01, false, "{0:0.00}");
+            double? s2_V5 = m_ResultDataBlock.ValidateAndAddData("ST_V5", so2_V5, 0.01, false, "{0:0.00}");
+            double? s2_V6 = m_ResultDataBlock.ValidateAndAddData("ST_V6", so2_V6, 0.01, false, "{0:0.00}");
 
-            string s2_V1 = ValidateAddData("ST_V1", so2_V1, 0.01, false, "{0:0.00}");
-            string s2_V2 = ValidateAddData("ST_V2", so2_V2, 0.01, false, "{0:0.00}");
-            string s2_V3 = ValidateAddData("ST_V3", so2_V3, 0.01, false, "{0:0.00}");
-            string s2_V4 = ValidateAddData("ST_V4", so2_V4, 0.01, false, "{0:0.00}");
-            string s2_V5 = ValidateAddData("ST_V5", so2_V5, 0.01, false, "{0:0.00}");
-            string s2_V6 = ValidateAddData("ST_V6", so2_V6, 0.01, false, "{0:0.00}");
-
-            string s3_AVL = ValidateAddData("ST_aVL", so3_AVL, 0.01, false, "{0:0.00}");
-            string s3_AVR = ValidateAddData("ST_aVR", so3_AVR, 0.01, false, "{0:0.00}");
-            string s3_AVF = ValidateAddData("ST_aVF", so3_AVF, 0.01, false, "{0:0.00}");
+            double? s3_AVL = m_ResultDataBlock.ValidateAndAddData("ST_aVL", so3_AVL, 0.01, false, "{0:0.00}");
+            double? s3_AVR = m_ResultDataBlock.ValidateAndAddData("ST_aVR", so3_AVR, 0.01, false, "{0:0.00}");
+            double? s3_AVF = m_ResultDataBlock.ValidateAndAddData("ST_aVF", so3_AVF, 0.01, false, "{0:0.00}");
 
             short so4 = driSR.ext2.ent.eeg_ent;
             short so5 = driSR.ext2.ent.emg_ent;
@@ -1015,17 +974,17 @@ namespace VSCaptureWave
             short so9 = driSR.ext2.eeg_bis.emg_val;
             short so10 = driSR.ext2.eeg_bis.sqi_val;
 
-            ValidateAddData("EEG_Entropy", so4, 1, true);
-            ValidateAddData("EMG_Entropy", so5, 1, true);
-            ValidateAddData("BSR_Entropy", so6, 1, true);
-            ValidateAddData("BIS", so7, 1, true);
-            ValidateAddData("BIS_BSR", so8, 1, true);
-            ValidateAddData("BIS_EMG", so9, 1, true);
-            ValidateAddData("BIS_SQI", so10, 1, true);
+            m_ResultDataBlock.ValidateAndAddData("EEG_Entropy", so4, 1, true);
+            m_ResultDataBlock.ValidateAndAddData("EMG_Entropy", so5, 1, true);
+            m_ResultDataBlock.ValidateAndAddData("BSR_Entropy", so6, 1, true);
+            m_ResultDataBlock.ValidateAndAddData("BIS", so7, 1, true);
+            m_ResultDataBlock.ValidateAndAddData("BIS_BSR", so8, 1, true);
+            m_ResultDataBlock.ValidateAndAddData("BIS_EMG", so9, 1, true);
+            m_ResultDataBlock.ValidateAndAddData("BIS_SQI", so10, 1, true);
 
-            Console.WriteLine("ST I {0:0.0}mm ST II {0:0.0}mm ST III {0:0.0}mm ST aVL {2:0.0}mm", s1_I, s1_II, s1_III, s2_V5, s3_AVL);
-            Console.WriteLine("ST V1 {1:0.0}mm ST V2 {1:0.0}mm ST V3 {1:0.0}mm ST V4 {1:0.0}mm ST V5 {1:0.0}mm ST V6 {1:0.0}mm",
-                s2_V1, s2_V2, s2_V3, s2_V4, s2_V5, s2_V6);
+            log.Info(String.Format("ST I {0:0.0}mm ST II {0:0.0}mm ST III {0:0.0}mm ST aVL {2:0.0}mm", s1_I, s1_II, s1_III, s2_V5, s3_AVL));
+            log.Info(String.Format("ST V1 {1:0.0}mm ST V2 {1:0.0}mm ST V3 {1:0.0}mm ST V4 {1:0.0}mm ST V5 {1:0.0}mm ST V6 {1:0.0}mm",
+                s2_V1, s2_V2, s2_V3, s2_V4, s2_V5, s2_V6));
 
             short so11 = driSR.ext2.nmt2.count;
             short so12 = driSR.ext2.nmt2.nmt_t1;
@@ -1037,83 +996,20 @@ namespace VSCaptureWave
             double so17 = driSR.ext3.depl.ppv;
             short so18 = driSR.ext3.aa2.mac_age_sum;
 
-            ValidateAddData("NMT_Count", so11, 1, true);
-            ValidateAddData("NMT_T1", so12, 1, false);
-            ValidateAddData("NMT_T2", so13, 1, false);
-            ValidateAddData("NMT_T3", so14, 1, false);
-            ValidateAddData("NMT_T4", so15, 1, false);
+            m_ResultDataBlock.ValidateAndAddData("NMT_Count", so11, 1, true);
+            m_ResultDataBlock.ValidateAndAddData("NMT_T1", so12, 1, false);
+            m_ResultDataBlock.ValidateAndAddData("NMT_T2", so13, 1, false);
+            m_ResultDataBlock.ValidateAndAddData("NMT_T3", so14, 1, false);
+            m_ResultDataBlock.ValidateAndAddData("NMT_T4", so15, 1, false);
 
-            ValidateAddData("SPV", so16, 0.01, false, "{0:0.0}");
-            ValidateAddData("PPV", so17, 0.01, false, "{0:0.0}");
-            ValidateAddData("MAC_AGE_SUM", so18, 1, false, "{0:0.00}");
-
-        }
-
-
-        public string ValidateAddData(string physio_id, object value, double decimalshift, bool rounddata)
-        {
-            int val = Convert.ToInt32(value);
-            double dval = Convert.ToDouble(value, CultureInfo.InvariantCulture) * decimalshift;
-            if (rounddata) dval = Math.Round(dval);
-
-            string valuestr = dval.ToString();
-
-            if (val < DataConstants.DATA_INVALID_LIMIT)
-            {
-                valuestr = "-";
-            }
-
-            NumericValResult NumVal = new NumericValResult();
-
-            NumVal.Timestamp = m_strTimestamp;
-            NumVal.PhysioID = physio_id;
-            NumVal.Value = valuestr;
-            NumVal.DeviceID = m_DeviceID;
-
-            m_NumericValList.Add(NumVal);
-            m_NumValHeaders.Add(NumVal.PhysioID);
-
-            return valuestr;
-        }
-
-        public string ValidateAddData(string physio_id, object value, double decimalshift, bool rounddata, string decimalformat)
-        {
-            int val = Convert.ToInt32(value);
-            double dval = Convert.ToDouble(value, CultureInfo.InvariantCulture) * decimalshift;
-            if (rounddata) dval = Math.Round(dval);
-
-            string valuestr = String.Format(decimalformat, dval);
-
-            if (val < DataConstants.DATA_INVALID_LIMIT)
-            {
-                valuestr = "-";
-            }
-
-            NumericValResult NumVal = new NumericValResult();
-
-            NumVal.Timestamp = m_strTimestamp;
-            NumVal.PhysioID = physio_id;
-            NumVal.Value = valuestr;
-            NumVal.DeviceID = m_DeviceID;
-
-            m_NumericValList.Add(NumVal);
-            m_NumValHeaders.Add(NumVal.PhysioID);
-
-            return valuestr;
+            m_ResultDataBlock.ValidateAndAddData("SPV", so16, 0.01, false, "{0:0.0}");
+            m_ResultDataBlock.ValidateAndAddData("PPV", so17, 0.01, false, "{0:0.0}");
+            m_ResultDataBlock.ValidateAndAddData("MAC_AGE_SUM", so18, 1, false, "{0:0.00}");
         }
 
         public void AddDataString(string physio_id, string valuestr)
         {
-            NumericValResult NumVal = new NumericValResult();
-
-            NumVal.Timestamp = m_strTimestamp;
-            NumVal.PhysioID = physio_id;
-            NumVal.Value = valuestr;
-            NumVal.DeviceID = m_DeviceID;
-
-            m_NumericValList.Add(NumVal);
-            m_NumValHeaders.Add(NumVal.PhysioID);
-
+            m_ResultDataBlock.Values.Add(new ReceivedDataValue(physio_id, valuestr));
         }
 
         public string ValidateWaveData(object value, double decimalshift, bool rounddata)
@@ -1131,6 +1027,14 @@ namespace VSCaptureWave
             }
 
             return str;
+        }
+
+        public void SendWaveToJsonServer()
+        {
+            foreach (WaveValResult WavValResult in m_WaveValResultList)
+            {
+                // TODO 
+            }
         }
 
         public void ExportWaveToCSV()
@@ -1163,93 +1067,13 @@ namespace VSCaptureWave
 
                     }
 
-                    ExportNumValListToCSVFile(pathcsv, m_strbuildwavevalues);
+                    CsvExport.ExportNumValListToCSVFile(pathcsv, m_strbuildwavevalues);
 
                     m_strbuildwavevalues.Clear();
                 }
 
                 m_WaveValResultList.RemoveRange(0, wavevallistcount);
 
-            }
-
-        }
-
-        public void WriteNumericHeadersList()
-        {
-            if (m_NumericValList.Count != 0 && m_transmissionstart)
-            {
-                string pathcsv = Path.Combine(Directory.GetCurrentDirectory(), "S5DataExport.csv");
-
-                m_strbuildheaders.Append("Time");
-                m_strbuildheaders.Append(',');
-
-                foreach (NumericValResult NumValResult in m_NumericValList)
-                {
-                    m_strbuildheaders.Append(NumValResult.PhysioID);
-                    m_strbuildheaders.Append(',');
-
-                }
-
-                m_strbuildheaders.Remove(m_strbuildheaders.Length - 1, 1);
-                m_strbuildheaders.Replace(",,", ",");
-                m_strbuildheaders.AppendLine();
-                ExportNumValListToCSVFile(pathcsv, m_strbuildheaders);
-
-                m_strbuildheaders.Clear();
-                m_NumValHeaders.RemoveRange(0, m_NumValHeaders.Count);
-                m_transmissionstart = false;
-
-            }
-        }
-
-
-        public void SaveNumericValueListRows()
-        {
-            if (m_NumericValList.Count != 0)
-            {
-                WriteNumericHeadersList();
-                string pathcsv = Path.Combine(Directory.GetCurrentDirectory(), "S5DataExport.csv");
-
-                m_strbuildvalues.Append(m_NumericValList.ElementAt(0).Timestamp);
-                m_strbuildvalues.Append(',');
-
-                foreach (NumericValResult NumValResult in m_NumericValList)
-                {
-                    m_strbuildvalues.Append(NumValResult.Value);
-                    m_strbuildvalues.Append(',');
-
-                }
-
-                m_strbuildvalues.Remove(m_strbuildvalues.Length - 1, 1);
-                m_strbuildvalues.Replace(",,", ",");
-                m_strbuildvalues.AppendLine();
-
-                ExportNumValListToCSVFile(pathcsv, m_strbuildvalues);
-                m_strbuildvalues.Clear();
-                m_NumericValList.RemoveRange(0, m_NumericValList.Count);
-            }
-        }
-
-
-        public void ExportNumValListToCSVFile(string _FileName, StringBuilder strbuildNumVal)
-        {
-            try
-            {
-                // Open file for reading. 
-                using (StreamWriter wrStream = new StreamWriter(_FileName, true, Encoding.UTF8))
-                {
-                    wrStream.Write(strbuildNumVal);
-                    strbuildNumVal.Clear();
-
-                    // close file stream. 
-                    wrStream.Close();
-                }
-            }
-
-            catch (Exception _Exception)
-            {
-                // Error. 
-                Console.WriteLine("Exception caught in process: {0}", _Exception.ToString());
             }
 
         }
@@ -1274,164 +1098,10 @@ namespace VSCaptureWave
             catch (Exception _Exception)
             {
                 // Error. 
-                Console.WriteLine("Exception caught in process: {0}", _Exception.ToString());
+                log.Error(String.Format("Exception caught in process: {0}", _Exception.ToString()), _Exception);
             }
             // error occured, return false. 
             return false;
-        }
-
-        public void ExportNumValListToJSON()
-        {
-            object dataToSerialize = m_jsonpostKafkaProxy ? new KafkaMessage(m_DeviceID, m_NumericValList) : m_NumericValList;
-            string serializedJSON = JsonSerializer.Serialize(dataToSerialize, new JsonSerializerOptions { IncludeFields = true });
-
-            try
-            {
-                // Open file for reading. 
-                //StreamWriter wrStream = new StreamWriter(pathjson, true, Encoding.UTF8);
-
-                //wrStream.Write(serializedJSON);
-
-                //wrStream.Close();
-
-                Task.Run(() => PostJSONDataToServer(serializedJSON));
-
-            }
-
-            catch (Exception _Exception)
-            {
-                // Error. 
-                Console.WriteLine("Exception caught in process: {0}", _Exception.ToString());
-            }
-        }
-
-        public async Task PostJSONDataToServer(string postData)
-        {
-            using (HttpClient client = new HttpClient())
-            {
-                ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls | SecurityProtocolType.Tls11 | SecurityProtocolType.Tls12 | SecurityProtocolType.Tls13;
-                client.BaseAddress = new Uri(m_jsonposturl);
-
-                var requestMessage = new HttpRequestMessage(HttpMethod.Post, (string)null);
-
-                if (m_jsonpostUser != null && m_jsonpostPassw != null)
-                {
-                    var authenticationString = $"{m_jsonpostUser}:{m_jsonpostPassw}";
-                    var base64EncodedAuthenticationString = Convert.ToBase64String(Encoding.ASCII.GetBytes(authenticationString));
-                    requestMessage.Headers.Authorization = new AuthenticationHeaderValue("Basic", base64EncodedAuthenticationString);
-                }
-
-                var data = new StringContent(postData, Encoding.UTF8, m_jsonpostKafkaProxy ? "application/vnd.kafka.json.v2+json" : "application /json");
-                requestMessage.Content = data;
-
-                var response = await client.SendAsync(requestMessage);
-                response.EnsureSuccessStatusCode();
-
-                string result = await response.Content.ReadAsStringAsync();
-
-                Console.WriteLine(result);
-            }
-        }
-
-        public void ExportNumValListToMQTT(string datatype)
-        {
-            string serializedJSON = JsonSerializer.Serialize(m_NumericValList, new JsonSerializerOptions { IncludeFields = true });
-
-            m_NumericValList.RemoveRange(0, m_NumericValList.Count);
-
-            CancellationTokenSource source = new CancellationTokenSource();
-            CancellationToken token = source.Token;
-
-            var mqttClient = new MqttFactory().CreateMqttClient();
-            var logger = new MqttFactory().DefaultLogger;
-            //var managedClient = new ManagedMqttClient(mqttClient, IMqttNetLogger);
-            var managedClient = new ManagedMqttClient(mqttClient, logger);
-
-            try
-            {
-                var task = Task.Run(async () =>
-                {
-                    var connected = GetConnectedTask(managedClient);
-                    await ConnectMQTTAsync(managedClient, token, m_MQTTUrl, m_MQTTclientId, m_MQTTuser, m_MQTTpassw);
-                    await connected;
-
-                });
-
-                task.ContinueWith(antecedent =>
-                {
-                    if (antecedent.Status == TaskStatus.RanToCompletion)
-                    {
-                        Task.Run(async () =>
-                        {
-                            await PublishMQTTAsync(managedClient, token, m_MQTTtopic, serializedJSON);
-                            await managedClient.StopAsync();
-                        });
-                    }
-                });
-
-                //ConnectMQTTAsync(m_mqttClient, token, m_MQTTUrl, m_MQTTclientId, m_MQTTuser, m_MQTTpassw).Wait();
-                //m_MQTTtopic = String.Format("/VSCapture/{0}/numericdata/", m_DeviceID);
-                //PublishMQTTAsync(m_mqttClient, token, m_MQTTtopic, serializedJSON).Wait();
-            }
-
-            catch (Exception _Exception)
-            {
-                // Error. 
-                Console.WriteLine("Exception caught in process: {0}", _Exception.ToString());
-            }
-
-        }
-
-        public static async Task ConnectMQTTAsync(ManagedMqttClient mqttClient, CancellationToken token, string mqtturl, string clientId, string mqttuser, string mqttpassw)
-        {
-            bool mqttSecure = true;
-
-            var messageBuilder = new MqttClientOptionsBuilder()
-            .WithClientId(clientId)
-            .WithCredentials(mqttuser, mqttpassw)
-            .WithCommunicationTimeout(new TimeSpan(0, 0, 10))
-            .WithWebSocketServer(mqtturl)
-            .WithCleanSession();
-
-            var options = mqttSecure
-            ? messageBuilder
-                .WithTls()
-                .Build()
-            : messageBuilder
-                .Build();
-
-            var managedOptions = new ManagedMqttClientOptionsBuilder()
-              .WithAutoReconnectDelay(TimeSpan.FromSeconds(5))
-              .WithClientOptions(options)
-              .Build();
-
-            await mqttClient.StartAsync(managedOptions);
-
-        }
-
-        public static async Task PublishMQTTAsync(ManagedMqttClient mqttClient, CancellationToken token, string topic, string payload, bool retainFlag = true, int qos = 1)
-        {
-            if (mqttClient.IsConnected)
-            {
-                await mqttClient.PublishAsync(new MqttApplicationMessageBuilder()
-               .WithTopic(topic)
-               .WithPayload(payload)
-               .WithQualityOfServiceLevel((MQTTnet.Protocol.MqttQualityOfServiceLevel)qos)
-               .WithRetainFlag(retainFlag)
-               .Build(), token);
-            }
-
-        }
-
-        Task GetConnectedTask(ManagedMqttClient managedClient)
-        {
-            TaskCompletionSource<bool> connected = new TaskCompletionSource<bool>();
-            managedClient.ConnectedHandler = new MqttClientConnectedHandlerDelegate(e =>
-            {
-                managedClient.ConnectedHandler = null;
-                connected.SetResult(true);
-            });
-            return connected.Task;
         }
 
         public bool OSIsUnix()

@@ -16,7 +16,7 @@
     along with VitalSignsCapture.  If not, see <http://www.gnu.org/licenses/>.*/
 
 using System.IO.Ports;
-
+using System.Runtime.CompilerServices;
 
 namespace VSCaptureWave
 {
@@ -42,7 +42,7 @@ namespace VSCaptureWave
             Console.WriteLine();
 
             // Create a new SerialPort object with default settings.
-            DSerialPort _serialPort = DSerialPort.getInstance;
+            DSerialPort _serialPort = DSerialPort.GetInstance;
             string portName;
             string sInterval;
             string sWaveformSet;
@@ -110,7 +110,7 @@ namespace VSCaptureWave
                 if (!parser.Arguments.ContainsKey("port"))
                 {
                     Console.WriteLine("You may now connect the serial cable to the GE Datex S/5 Monitor");
-                    Console.WriteLine("Press any key to continue..");
+                    Console.WriteLine("Press any Key to continue..");
 
                     Console.ReadKey(true);
 
@@ -155,6 +155,23 @@ namespace VSCaptureWave
 
                     switch (nDataExportset)
                     {
+                        case 1:
+                            {
+                                if (parser.Arguments.ContainsKey("exportDataFile"))
+                                {
+                                    _serialPort.CsvExport = new(parser.Arguments["exportDataFile"][0]);
+                                }
+                                else
+                                {
+                                    Console.WriteLine("Enter a CSV file name to save the receiving data ('" + CsvExport.DEFAULT_EXPORT_FILE_NAME + "' by default):");
+                                    string csvFileName = Console.ReadLine();
+                                    _serialPort.CsvExport = new(!String.IsNullOrEmpty(csvFileName) ? 
+                                        (csvFileName.Contains('/') || csvFileName.Contains('\\') ? csvFileName : Path.Combine(Directory.GetCurrentDirectory(), csvFileName)) :
+                                        Path.Combine(Directory.GetCurrentDirectory(), CsvExport.DEFAULT_EXPORT_FILE_NAME));
+                                }
+                            }
+                            break;
+
                         case 2:
                             {
                                 if (parser.Arguments.ContainsKey("devid"))
@@ -207,6 +224,10 @@ namespace VSCaptureWave
                                     Console.Write("Enable Kafka REST Proxy mode (y/n)?");
                                     JSONPostKafka = Console.ReadLine();
                                 }
+
+                                _serialPort.JsonServerClient = new(JSONPostUrl, JSONPostUser, JSONPostPassw, 
+                                    JSONPostKafka != null && string.Equals("y", JSONPostKafka, StringComparison.OrdinalIgnoreCase));
+
                             }
                             break;
                         case 3:
@@ -266,20 +287,13 @@ namespace VSCaptureWave
                                     MQTTpassw = Console.ReadLine();
 
                                 }
+
+                                _serialPort.MQTTClient = new(MQTTUrl, MQTTtopic, MQTTuser, MQTTpassw);
                             }
                             break;
                     }
 
                     _serialPort.m_DeviceID = DeviceID;
-                    _serialPort.m_jsonposturl = JSONPostUrl;
-                    _serialPort.m_jsonpostUser = JSONPostUser;
-                    _serialPort.m_jsonpostPassw = JSONPostPassw;
-                    _serialPort.m_jsonpostKafkaProxy = JSONPostKafka != null && string.Equals("y", JSONPostKafka, StringComparison.OrdinalIgnoreCase);
-
-                    _serialPort.m_MQTTUrl = MQTTUrl;
-                    _serialPort.m_MQTTtopic = MQTTtopic;
-                    _serialPort.m_MQTTuser = MQTTuser;
-                    _serialPort.m_MQTTpassw = MQTTpassw;
 
                     if (nDataExportset > 0 && nDataExportset < 4) _serialPort.m_dataexportset = nDataExportset;
 
