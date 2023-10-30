@@ -49,7 +49,7 @@ namespace VSCaptureWave
         public JsonServerClient JsonServerClient = null;
         public MQTTClient MQTTClient = null;
 
-        public List<WaveValResult> m_WaveValResultList = new();
+        public List<ReceivedWaveData> m_WaveValResultList = new();
         public StringBuilder m_strbuildwavevalues = new();
 
         public string m_strTimestamp;
@@ -57,15 +57,6 @@ namespace VSCaptureWave
         private bool m_transmissionstart = true;
 
         public string m_DeviceID;
-
-        public class WaveValResult
-        {
-            public string Timestamp;
-            public string PhysioID;
-            public short[] Value;
-            public string DeviceID;
-            public double Unitshift;
-        }
 
         //Create a singleton serialport subclass
         private static volatile DSerialPort DPort = null;
@@ -98,7 +89,8 @@ namespace VSCaptureWave
 
             if (OSIsUnix())
                 DPort.PortName = "/dev/ttyUSB0"; //default Unix port
-            else DPort.PortName = "COM1"; //default Windows port
+            else 
+                DPort.PortName = "COM1"; //default Windows port
 
             DPort.BaudRate = 19200;
             DPort.Parity = Parity.Even;
@@ -227,6 +219,7 @@ namespace VSCaptureWave
                     if (FrameList.Count > 0)
                     {
                         CreateRecordList();
+
                         ReadSubRecords();
                         ReadMultipleWaveSubRecords();
 
@@ -340,9 +333,7 @@ namespace VSCaptureWave
                 handle2.Free();
 
             }
-
-
-        }
+         }
 
         public void RequestTransfer(byte Trtype, short Interval, byte DRIlevel)
         {
@@ -555,8 +546,8 @@ namespace VSCaptureWave
 
                     m_ResultDataBlock = new(m_DeviceID, unixtime);
 
-                    ShowBasicSubRecord(phdata_ptr);
-                    ShowExt1Ext2Ext3SubRecord(phdata_ptr);
+                    ProcessBasicSubRecord(phdata_ptr);
+                    ProcessExtSubRecords(phdata_ptr);
 
                     switch (m_dataexportset)
                     {
@@ -576,7 +567,7 @@ namespace VSCaptureWave
 
         public void ReadMultipleWaveSubRecords()
         {
-            if (m_dataexportset == 3) return;
+            if (m_dataexportset == 3) return; // MQTT wave export isn't supported yet
 
             foreach (datex_record_type dx_record in RecordList)
             {
@@ -622,26 +613,28 @@ namespace VSCaptureWave
                             buffer[j] = dx_record.data[6 + j + offset];
                         }
 
-                        WaveValResult WaveVal = new WaveValResult();
-                        WaveVal.Timestamp = dtime;
-                        WaveVal.DeviceID = m_DeviceID;
-                        WaveVal.PhysioID = Enum.GetName(typeof(DataConstants.WavesIDLabels), srtypeArray[i]);
-                        WaveVal.Unitshift = GetWaveUnitShift(WaveVal.PhysioID);
-
-                        List<short> WaveValList = new List<short>();
+                        ReceivedWaveData WaveVal = new();
+                        WaveVal.Time = dtDateTime;
+                        WaveVal.DataType = Enum.GetName(typeof(DataConstants.WavesIDLabels), srtypeArray[i]);
+                        
+                        List<double> waveValList = new();
 
                         //Convert Byte array to 16 bit short values
                         for (int n = 0; n < buffer.Length; n += 2)
                         {
-
                             short wavedata = BitConverter.ToInt16(buffer, n);
-                            WaveValList.Add(wavedata);
-
+                            int ival = Convert.ToInt32(wavedata);
+                            double dval = Double.NaN;
+                            if (ival >= DataConstants.DATA_INVALID_LIMIT)
+                            {
+                                dval = (Convert.ToDouble(wavedata, CultureInfo.InvariantCulture)) * GetWaveUnitShift(WaveVal.DataType);
+                            }
+                            waveValList.Add(dval);
                         }
 
-                        WaveVal.Value = new short[WaveValList.Count];
-                        short[] wavedataarray = WaveValList.ToArray();
-                        Array.Copy(wavedataarray, WaveVal.Value, WaveValList.Count);
+                        WaveVal.Values = new double[waveValList.Count];
+                        double[] wavedataarray = waveValList.ToArray();
+                        Array.Copy(wavedataarray, WaveVal.Values, waveValList.Count);
 
                         m_WaveValResultList.Add(WaveVal);
                     }
@@ -652,7 +645,7 @@ namespace VSCaptureWave
             switch (m_dataexportset)
             {
                 case 1:
-                    ExportWaveToCSV();
+                    CsvExport.ExportWaveToCSV(this.m_WaveValResultList);
                     break;
                 case 2:
                     SendWaveToJsonServer();
@@ -660,39 +653,7 @@ namespace VSCaptureWave
             }
         }
 
-        public double GetWaveUnitShift(string physioID)
-        {
-            double decimalshift = 1;
-
-            if (physioID.Contains("ECG") == true)
-                return (decimalshift = 0.01);
-            if (physioID.Contains("INVP") == true)
-                return (decimalshift = 0.01);
-            if (physioID.Contains("PLETH") == true)
-                return (decimalshift = 0.01);
-            if (physioID.Contains("CO2") == true)
-                return (decimalshift = 0.01);
-            if (physioID.Contains("O2") == true)
-                return (decimalshift = 0.01);
-            if (physioID.Contains("RESP") == true)
-                return (decimalshift = 0.01);
-            if (physioID.Contains("AA") == true)
-                return (decimalshift = 0.01);
-            if (physioID.Contains("FLOW") == true)
-                return (decimalshift = 0.01);
-            if (physioID.Contains("AWP") == true)
-                return (decimalshift = 0.1);
-            if (physioID.Contains("VOL") == true)
-                return (decimalshift = -1);
-            if (physioID.Contains("EEG") == true)
-                return (decimalshift = 1);
-            if (physioID.Contains("ENT") == true)
-                return (decimalshift = 0.1);
-            else return decimalshift;
-
-        }
-
-        public void ShowBasicSubRecord(dri_phdb driSR)
+        public void ProcessBasicSubRecord(dri_phdb driSR)
         {
             short so1 = driSR.basic.ecg.hr;
             short so2 = driSR.basic.nibp.sys;
@@ -934,7 +895,7 @@ namespace VSCaptureWave
             return InvPLabel;
         }
 
-        public void ShowExt1Ext2Ext3SubRecord(dri_phdb driSR)
+        public void ProcessExtSubRecords(dri_phdb driSR)
         {
             short so1_I = driSR.ext1.ecg12.stI;
             short so1_II = driSR.ext1.ecg12.stII;
@@ -1012,70 +973,44 @@ namespace VSCaptureWave
             m_ResultDataBlock.Values.Add(new ReceivedDataValue(physio_id, valuestr));
         }
 
-        public string ValidateWaveData(object value, double decimalshift, bool rounddata)
+        public double GetWaveUnitShift(string DataType)
         {
-            int val = Convert.ToInt32(value);
-            double dval = (Convert.ToDouble(value, CultureInfo.InvariantCulture)) * decimalshift;
-            if (rounddata) dval = Math.Round(dval);
+            double decimalshift = 1;
 
-            string str = dval.ToString();
+            if (DataType.Contains("ECG") == true)
+                return (decimalshift = 0.01);
+            if (DataType.Contains("INVP") == true)
+                return (decimalshift = 0.01);
+            if (DataType.Contains("PLETH") == true)
+                return (decimalshift = 0.01);
+            if (DataType.Contains("CO2") == true)
+                return (decimalshift = 0.01);
+            if (DataType.Contains("O2") == true)
+                return (decimalshift = 0.01);
+            if (DataType.Contains("RESP") == true)
+                return (decimalshift = 0.01);
+            if (DataType.Contains("AA") == true)
+                return (decimalshift = 0.01);
+            if (DataType.Contains("FLOW") == true)
+                return (decimalshift = 0.01);
+            if (DataType.Contains("AWP") == true)
+                return (decimalshift = 0.1);
+            if (DataType.Contains("VOL") == true)
+                return (decimalshift = -1);
+            if (DataType.Contains("EEG") == true)
+                return (decimalshift = 1);
+            if (DataType.Contains("ENT") == true)
+                return (decimalshift = 0.1);
+            else return decimalshift;
 
-
-            if (val < DataConstants.DATA_INVALID_LIMIT)
-            {
-                str = "-";
-            }
-
-            return str;
         }
 
         public void SendWaveToJsonServer()
         {
-            foreach (WaveValResult WavValResult in m_WaveValResultList)
+            foreach (ReceivedWaveData WavValResult in m_WaveValResultList)
             {
                 // TODO 
             }
-        }
-
-        public void ExportWaveToCSV()
-        {
-            int wavevallistcount = m_WaveValResultList.Count;
-
-            if (wavevallistcount != 0)
-            {
-                foreach (WaveValResult WavValResult in m_WaveValResultList)
-                {
-                    string WavValID = string.Format("{0}WaveExport.csv", WavValResult.PhysioID);
-
-                    string pathcsv = Path.Combine(Directory.GetCurrentDirectory(), WavValID);
-
-                    int wavvalarraylength = WavValResult.Value.GetLength(0);
-
-                    double decimalshift = WavValResult.Unitshift;
-
-                    for (int index = 0; index < wavvalarraylength; index++)
-                    {
-                        short Waveval = WavValResult.Value.ElementAt(index);
-
-                        string Wavevalue = ValidateWaveData(Waveval, decimalshift, false);
-
-                        m_strbuildwavevalues.Append(WavValResult.Timestamp);
-                        m_strbuildwavevalues.Append(',');
-                        m_strbuildwavevalues.Append(Wavevalue);
-                        m_strbuildwavevalues.Append(',');
-                        m_strbuildwavevalues.AppendLine();
-
-                    }
-
-                    CsvExport.ExportNumValListToCSVFile(pathcsv, m_strbuildwavevalues);
-
-                    m_strbuildwavevalues.Clear();
-                }
-
-                m_WaveValResultList.RemoveRange(0, wavevallistcount);
-
-            }
-
         }
 
         public bool ByteArrayToFile(string _FileName, byte[] _ByteArray, int nWriteLength)

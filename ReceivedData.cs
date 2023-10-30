@@ -19,7 +19,9 @@ namespace VSCaptureWave
         [JsonPropertyName("type")]
         public readonly DataType Type;
         [JsonPropertyName("values")]
-        public readonly List<ReceivedDataValue> Values = new();
+        public List<ReceivedDataValue> Values;
+        [JsonPropertyName("curves")]
+        public List<ReceivedDataValue> Curves;
         public ReceivedDataBlock(string deviceId, uint unixtime)
         {
             this.Id = deviceId + "-" + Guid.NewGuid();
@@ -45,6 +47,10 @@ namespace VSCaptureWave
                 if (rounddata) dval = Math.Round((double)dval);
             }
 
+            if (this.Values == null) {
+                this.Values = new();
+            }
+
             Values.Add(new ReceivedDataValue(physio_id, dval, decimalformat));
 
             return dval;
@@ -55,7 +61,7 @@ namespace VSCaptureWave
     {
         [JsonPropertyName("dataType")]
         public string DataType;
-        [JsonPropertyName("Value")]
+        [JsonPropertyName("value")]
         public object Value;
         [JsonIgnore]
         public string DecimalFormat;
@@ -66,6 +72,16 @@ namespace VSCaptureWave
             Value = value;
             DecimalFormat = decimalFormat;
         }
+    }
+
+    public class ReceivedWaveData
+    {
+        [JsonPropertyName("dataType")]
+        public string DataType;
+        [JsonPropertyName("time")]
+        public DateTime Time;
+        [JsonPropertyName("values")]
+        public double[] Values;
     }
 
     public enum DataType

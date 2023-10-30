@@ -1,12 +1,8 @@
 ﻿using log4net;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Net.Http.Headers;
 using System.Net;
 using System.Text;
 using System.Text.Json;
-using System.Threading.Tasks;
 
 namespace VSCaptureWave
 {
@@ -34,27 +30,18 @@ namespace VSCaptureWave
 
             try
             {
-                // Open file for reading. 
-                //StreamWriter wrStream = new StreamWriter(pathjson, true, Encoding.UTF8);
-
-                //wrStream.Write(serializedJSON);
-
-                //wrStream.Close();
-
                 Task.Run(() => PostJSONDataToServer(serializedJSON));
-
             }
 
             catch (Exception _Exception)
             {
-                // Error. 
                 log.Error(String.Format("Exception caught in process: {0}", _Exception.ToString()), _Exception);
             }
         }
 
         private async Task PostJSONDataToServer(string postData)
         {
-            using (HttpClient client = new HttpClient())
+            using (HttpClient client = new(new LoggingHandler(new HttpClientHandler())))
             {
                 ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls | SecurityProtocolType.Tls11 | SecurityProtocolType.Tls12 | SecurityProtocolType.Tls13;
                 client.BaseAddress = new Uri(Uri);
@@ -74,10 +61,46 @@ namespace VSCaptureWave
                 var response = await client.SendAsync(requestMessage);
                 response.EnsureSuccessStatusCode();
 
-                string result = await response.Content.ReadAsStringAsync();
-
-                log.Debug(result);
+                if (response.StatusCode != HttpStatusCode.OK)
+                {
+                    string responseContent = await response.Content.ReadAsStringAsync();
+                    log.Error($"Sending error to JSON Server. HTTP code: ${response.StatusCode}, response:\n ${responseContent}");
+                }
             }
+        }
+    }
+
+    public class LoggingHandler : DelegatingHandler
+    {
+        private static readonly ILog log = LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType);
+
+        public LoggingHandler(HttpMessageHandler innerHandler)
+            : base(innerHandler)
+        {
+        }
+
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            HttpResponseMessage response = await base.SendAsync(request, cancellationToken);
+
+            if (log.IsDebugEnabled)
+            {
+                StringBuilder protocolDump = new();
+                protocolDump.Append("Request:\n").Append(request.ToString());
+                if (request.Content != null)
+                {
+                    protocolDump.Append(await request.Content.ReadAsStringAsync());
+                }
+                protocolDump.Append("\nResponse:\n").Append(response.ToString());
+                if (response.Content != null)
+                {
+                    protocolDump.Append(await response.Content.ReadAsStringAsync(cancellationToken));
+                }
+                protocolDump.Append('\n');
+                log.Debug(protocolDump.ToString());
+            }
+
+            return response;
         }
     }
 }

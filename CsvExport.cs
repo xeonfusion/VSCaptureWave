@@ -9,11 +9,13 @@ namespace VSCaptureWave
         public static readonly string DEFAULT_EXPORT_FILE_NAME = "S5DataExport.csv";
 
         private readonly string ExportFileName;
+        private readonly string ExportWaveFileNameTemplate;
         private bool HeaderSaved = false;
 
         public CsvExport(string ExportFileName)
         {
             this.ExportFileName = ExportFileName;
+            ExportWaveFileNameTemplate = Path.Combine(Path.GetDirectoryName(ExportFileName), Path.GetFileNameWithoutExtension(ExportFileName));
         }
 
         public void WriteNumericHeadersList(ReceivedDataBlock DataBlock)
@@ -53,9 +55,15 @@ namespace VSCaptureWave
 
                 foreach (ReceivedDataValue dataValue in dataBlock.Values)
                 {
-                    strbuildvalues.Append(dataValue.Value);
+                    if (String.IsNullOrEmpty(dataValue.DecimalFormat))
+                    {
+                        strbuildvalues.Append(dataValue.Value);
+                    }
+                    else
+                    {
+                        strbuildvalues.Append(String.Format(dataValue.DecimalFormat, dataValue.Value));
+                    }
                     strbuildvalues.Append(',');
-
                 }
 
                 strbuildvalues.Remove(strbuildvalues.Length - 1, 1);
@@ -84,6 +92,39 @@ namespace VSCaptureWave
             {
                 // Error. 
                 log.Error(String.Format("Exception caught in process: {0}", _Exception.ToString()), _Exception);
+            }
+        }
+
+        public void ExportWaveToCSV(List<ReceivedWaveData> m_WaveValResultList)
+        {
+            int wavevallistcount = m_WaveValResultList.Count;
+
+            if (wavevallistcount != 0)
+            {
+                StringBuilder strbuildwavevalues = new();
+
+                foreach (ReceivedWaveData WavValResult in m_WaveValResultList)
+                {
+                    string pathcsv = ExportWaveFileNameTemplate + "-wave-" + WavValResult.DataType + Path.GetExtension(ExportFileName);
+
+                    int wavvalarraylength = WavValResult.Values.GetLength(0);
+
+                    for (int index = 0; index < wavvalarraylength; index++)
+                    {
+                        double waveval = WavValResult.Values.ElementAt(index);                                             
+                        strbuildwavevalues.Append(WavValResult.Time);
+                        strbuildwavevalues.Append(',');
+                        strbuildwavevalues.Append(waveval == Double.NaN ? "-" : waveval);
+                        strbuildwavevalues.Append(',');
+                        strbuildwavevalues.AppendLine();
+                    }
+
+                    CsvExport.ExportNumValListToCSVFile(pathcsv, strbuildwavevalues);
+
+                    strbuildwavevalues.Clear();
+                }
+
+                m_WaveValResultList.RemoveRange(0, wavevallistcount);
             }
         }
     }
