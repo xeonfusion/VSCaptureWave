@@ -15,13 +15,16 @@
     You should have received a copy of the GNU Lesser General Public License
     along with VitalSignsCapture.  If not, see <http://www.gnu.org/licenses/>.*/
 
+using log4net;
 using System.IO.Ports;
-using System.Runtime.CompilerServices;
 
+[assembly: log4net.Config.XmlConfigurator(Watch = true)]
 namespace VSCaptureWave
 {
     class Program
     {
+        private static readonly ILog log = LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType);
+
         static EventHandler dataEvent;
         public static string DeviceID;
 
@@ -37,7 +40,7 @@ namespace VSCaptureWave
 
         static void Main(string[] args)
         {
-            Console.WriteLine("VitalSignsCaptureWave v1.012 (C)2015-22 John George K., 2023 Evgenii Balakhonov");
+            log.Info("Starting VitalSignsCaptureWave v1.012 (C)2015-22 John George K., 2023 Evgenii Balakhonov");
             Console.WriteLine("For command line usage: -help");
             Console.WriteLine();
 
@@ -57,7 +60,7 @@ namespace VSCaptureWave
                 Console.WriteLine("-port <Set serial port name>");
                 Console.WriteLine("-interval <Set numeric transmission interval>");
                 Console.WriteLine("-waveset <Set waveform transmission set option>");
-                Console.WriteLine("-export <Set data export CSV, MQTT or JSON option>");
+                Console.WriteLine("-export <Set data export 1 - CSV, 2 - JSON, 3 - MQTT option>");
                 Console.WriteLine("-exportDataFile <Set file name for CSV export");                
                 Console.WriteLine("-devid <Set device ID for MQTT or JSON export>");
                 Console.WriteLine("-url <Set MQTT or JSON export url>");
@@ -81,19 +84,16 @@ namespace VSCaptureWave
                     Console.WriteLine(" {0}", s);
                 }
 
-
                 Console.Write("COM port({0}): ", _serialPort.PortName.ToString());
                 portName = Console.ReadLine();
-
             }
-
+            log.Info($"Selected COM port: {portName}");
 
             if (portName != "")
             {
                 // Allow the user to set the appropriate properties.
                 _serialPort.PortName = portName;
             }
-
 
             try
             {
@@ -151,6 +151,7 @@ namespace VSCaptureWave
 
                         sDataExportset = Console.ReadLine();
                     }
+                    log.Info($"Selected data export option: {sDataExportset}");
 
                     int nDataExportset = 1;
                     if (sDataExportset != "") nDataExportset = Convert.ToInt32(sDataExportset);
@@ -171,6 +172,7 @@ namespace VSCaptureWave
                                         (csvFileName.Contains('/') || csvFileName.Contains('\\') ? csvFileName : Path.Combine(Directory.GetCurrentDirectory(), csvFileName)) :
                                         Path.Combine(Directory.GetCurrentDirectory(), CsvExport.DEFAULT_EXPORT_FILE_NAME));
                                 }
+                                log.Info($"Data will be written to CSV file {_serialPort.CsvExport.ExportFileName}");
                             }
                             break;
 
@@ -229,7 +231,7 @@ namespace VSCaptureWave
 
                                 _serialPort.JsonServerClient = new(JSONPostUrl, JSONPostUser, JSONPostPassw, 
                                     JSONPostKafka != null && string.Equals("y", JSONPostKafka, StringComparison.OrdinalIgnoreCase));
-
+                                log.Info($"Data will be sent to JSON Server {_serialPort.JsonServerClient.Uri}, KafkaProxyMode = {_serialPort.JsonServerClient.KafkaProxyMode}");
                             }
                             break;
                         case 3:
@@ -291,6 +293,7 @@ namespace VSCaptureWave
                                 }
 
                                 _serialPort.MQTTClient = new(MQTTUrl, MQTTtopic, MQTTuser, MQTTpassw);
+                                log.Info($"Data will be sent to MQTT broker {_serialPort.MQTTClient.MQTTUrl}");
                             }
                             break;
                     }
@@ -298,7 +301,6 @@ namespace VSCaptureWave
                     _serialPort.m_DeviceID = DeviceID;
 
                     if (nDataExportset > 0 && nDataExportset < 4) _serialPort.m_dataexportset = nDataExportset;
-
 
                     if (parser.Arguments.ContainsKey("waveset"))
                     {
@@ -323,19 +325,22 @@ namespace VSCaptureWave
                         Console.Write("Choose Waveform data Transmission set (0-10):");
 
                         sWaveformSet = Console.ReadLine();
-
                     }
 
-                    short nWaveformSet = 1;
+                    log.Info($"Enabled Waveform data Transmission set: {sWaveformSet}");
+
+                    short nWaveformSet = 0;
                     if (sWaveformSet != "") nWaveformSet = Convert.ToInt16(sWaveformSet);
 
+                    if (nWaveformSet > 0 && nDataExportset == 1)
+                    {
+                        log.Info($"Waveform data will be written to multiple CSV files in same folder with file {_serialPort.CsvExport.ExportFileName}");
+                    }
 
-                    Console.WriteLine("Requesting {0} second Transmission from monitor", nInterval);
+                    log.Info($"Requesting {nInterval} second Transmission from monitor");
 
                     //Console.WriteLine("Requesting Transmission from monitor");
-                    Console.WriteLine();
-                    Console.WriteLine("Data will be written to CSV file S5DataExport.csv in same folder");
-
+                                        
                     //_serialPort.RequestTransfer(DataConstants.DRI_PH_DISPL, nInterval); // Add Request Transmission
 
                     //_serialPort.RequestTransfer(DataConstants.DRI_PH_DISPL, -1); // Add Single Request Transmission
@@ -361,10 +366,6 @@ namespace VSCaptureWave
 
                     if (nWaveformSet != 0)
                     {
-                        Console.WriteLine();
-                        Console.WriteLine("Requesting Waveform data from monitor");
-                        Console.WriteLine("Waveform data will be written to multiple CSV files in same folder");
-
                         _serialPort.RequestMultipleWaveTransfer(WaveTrtype, DataConstants.WF_REQ_CONT_START, DataConstants.DRI_LEVEL_2015);
                         _serialPort.RequestMultipleWaveTransfer(WaveTrtype, DataConstants.WF_REQ_CONT_START, DataConstants.DRI_LEVEL_2009);
                         _serialPort.RequestMultipleWaveTransfer(WaveTrtype, DataConstants.WF_REQ_CONT_START, DataConstants.DRI_LEVEL_2005);
@@ -408,21 +409,15 @@ namespace VSCaptureWave
             }
             catch (Exception ex)
             {
-                Console.WriteLine("Error opening/writing to serial port :: " + ex.Message, "Error!");
+                log.Error($"Error opening/writing to serial port :: {ex.Message}", ex);
             }
             finally
             {
                 _serialPort.StopTransfer();
-
                 _serialPort.StopwaveTransfer();
-
                 _serialPort.Close();
-
             }
-
-
         }
-
 
         static void p_DataReceived(object sender, SerialDataReceivedEventArgs e)
         {

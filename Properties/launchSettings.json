@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "VSCaptureWave": {
+      "commandName": "Project",
+      "commandLineArgs": "-port COM2 -interval 5 -export 1 -devid s5test -exportDataFile S5DataExport1.csv -waveset 0"
+    }
+  }
+}

@@ -337,6 +337,8 @@ namespace VSCaptureWave
 
         public void RequestTransfer(byte Trtype, short Interval, byte DRIlevel)
         {
+            log.Info($"Requesting Transmission {Trtype} with interval {Interval} with DRI level {DRIlevel} from monitor");
+
             //Set Record Header
             request_ptr.hdr.r_len = 49; //size of hdr + phdb type
             request_ptr.hdr.r_dri_level = DRIlevel;
@@ -424,6 +426,8 @@ namespace VSCaptureWave
 
         public void RequestMultipleWaveTransfer(byte[] TrWavetype, short TrSignaltype, byte DRIlevel)
         {
+            log.Info($"Requesting wave {TrWavetype} with signal type {TrSignaltype}, with DRI level {DRIlevel} from monitor");
+
             //Set Record Header
             wave_request_ptr.hdr.r_len = 72; //size of hdr + wfreq type
             wave_request_ptr.hdr.r_dri_level = DRIlevel;

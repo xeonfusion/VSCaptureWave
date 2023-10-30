@@ -8,7 +8,7 @@ namespace VSCaptureWave
         private static readonly ILog log = LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType);
         public static readonly string DEFAULT_EXPORT_FILE_NAME = "S5DataExport.csv";
 
-        private readonly string ExportFileName;
+        public readonly string ExportFileName;
         private readonly string ExportWaveFileNameTemplate;
         private bool HeaderSaved = false;
 
