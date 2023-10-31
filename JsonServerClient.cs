@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Net;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace VSCaptureWave
 {
@@ -26,7 +27,8 @@ namespace VSCaptureWave
         public void SendBlock(ReceivedDataBlock dataBlock)
         {
             object dataToSerialize = KafkaProxyMode ? new KafkaRestProxyMessage(dataBlock) : dataBlock;
-            string serializedJSON = JsonSerializer.Serialize(dataToSerialize, new JsonSerializerOptions { IncludeFields = true });
+            string serializedJSON = JsonSerializer.Serialize(dataToSerialize, 
+                new JsonSerializerOptions { IncludeFields = true, DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull });
 
             try
             {

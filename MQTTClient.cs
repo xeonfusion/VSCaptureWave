@@ -4,6 +4,7 @@ using MQTTnet.Client.Options;
 using MQTTnet.Extensions.ManagedClient;
 using MQTTnet;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace VSCaptureWave
 {
@@ -28,7 +29,8 @@ namespace VSCaptureWave
 
         public void ExportNumValListToMQTT(ReceivedDataBlock dataBlock)
         {
-            string serializedJSON = JsonSerializer.Serialize(dataBlock, new JsonSerializerOptions { IncludeFields = true });
+            string serializedJSON = JsonSerializer.Serialize(dataBlock, 
+                new JsonSerializerOptions { IncludeFields = true, DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull });
 
             CancellationTokenSource source = new();
             CancellationToken token = source.Token;

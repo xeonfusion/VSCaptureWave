@@ -57,11 +57,11 @@ namespace VSCaptureWave
                 {
                     if (String.IsNullOrEmpty(dataValue.DecimalFormat))
                     {
-                        strbuildvalues.Append(dataValue.Value is double && ((double)dataValue.Value) != Double.NaN ? dataValue : "-");
+                        strbuildvalues.Append(dataValue.Value != null ? dataValue.Value : "-");
                     }
                     else
                     {
-                        strbuildvalues.Append(String.Format(dataValue.DecimalFormat, dataValue.Value));
+                        strbuildvalues.Append(dataValue.Value != null ? String.Format(dataValue.DecimalFormat, dataValue.Value) : "-");
                     }
                     strbuildvalues.Append(',');
                 }
@@ -114,7 +114,7 @@ namespace VSCaptureWave
                         double waveval = WavValResult.Values.ElementAt(index);                                             
                         strbuildwavevalues.Append(WavValResult.Time);
                         strbuildwavevalues.Append(',');
-                        strbuildwavevalues.Append(waveval == Double.NaN ? "-" : waveval);
+                        strbuildwavevalues.Append(Double.IsNaN(waveval) ? "-" : waveval);
                         strbuildwavevalues.Append(',');
                         strbuildwavevalues.AppendLine();
                     }

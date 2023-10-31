@@ -110,6 +110,8 @@ namespace VSCaptureWave
 
         public static void WriteBuffer(byte[] txbuf)
         {
+            log.Debug($"{txbuf.Length} bytes sent");
+
             byte[] framebyte = { DataConstants.CTRLCHAR, (DataConstants.FRAMECHAR & DataConstants.BIT5COMPL), 0 };
             byte[] ctrlbyte = { DataConstants.CTRLCHAR, (DataConstants.CTRLCHAR & DataConstants.BIT5COMPL), 0 };
 
@@ -197,7 +199,7 @@ namespace VSCaptureWave
 
             try
             {
-                string path = Path.Combine(Directory.GetCurrentDirectory(), "S5Rawoutput.raw");
+                string path = Path.Combine(Directory.GetCurrentDirectory(), "S5Rawoutput.raw"); //TODO make optional
 
                 int lenread = 0;
 
@@ -288,6 +290,7 @@ namespace VSCaptureWave
                     if (checksum == bArray[framelen - 1])
                     {
                         FrameList.Add(bArray);
+                        log.Debug($"A new {bArray.Length} byte frame has been recognized");
                     }
                     m_bList.Clear();
                     m_storeend = false;
@@ -330,6 +333,7 @@ namespace VSCaptureWave
                 Marshal.PtrToStructure(handle2.AddrOfPinnedObject(), record_dtx);
 
                 RecordList.Add(record_dtx);
+                log.Debug($"A new {record_dtx.hdr.r_dri_level} DRI level record has been recognized");
                 handle2.Free();
 
             }
@@ -382,6 +386,8 @@ namespace VSCaptureWave
 
         public void RequestWaveTransfer(byte TrWavetype, short TrSignaltype, byte DRIlevel)
         {
+            log.Info($"Requesting single Wave transfer {TrWavetype} with signal type {TrSignaltype}, with DRI level {DRIlevel} from monitor");
+
             //Set Record Header
             wave_request_ptr.hdr.r_len = 72; //size of hdr + wfreq type
             wave_request_ptr.hdr.r_dri_level = DRIlevel;
@@ -500,7 +506,6 @@ namespace VSCaptureWave
         {
             foreach (datex_record_type dx_record in RecordList)
             {
-
                 short dxrecordmaintype = dx_record.hdr.r_maintype;
 
                 if (dxrecordmaintype == DataConstants.DRI_MT_PHDB)
@@ -664,18 +669,18 @@ namespace VSCaptureWave
             short so5 = driSR.basic.SpO2.SpO2;
             short so6 = driSR.basic.co2.et;
 
-            double? s1 = m_ResultDataBlock.ValidateAndAddData("ECG_HR", so1, 1, true);
+            string s1 = m_ResultDataBlock.ValidateAndAddData("ECG_HR", so1, 1, true);
 
-            double? s2 = m_ResultDataBlock.ValidateAndAddData("NIBP_Systolic", so2, 0.01, true);
+            string s2 = m_ResultDataBlock.ValidateAndAddData("NIBP_Systolic", so2, 0.01, true);
 
-            double? s3 = m_ResultDataBlock.ValidateAndAddData("NIBP_Diastolic", so3, 0.01, true);
+            string s3 = m_ResultDataBlock.ValidateAndAddData("NIBP_Diastolic", so3, 0.01, true);
 
-            double? s4 = m_ResultDataBlock.ValidateAndAddData("NIBP_Mean", so4, 0.01, true);
+            string s4 = m_ResultDataBlock.ValidateAndAddData("NIBP_Mean", so4, 0.01, true);
 
-            double? s5 = m_ResultDataBlock.ValidateAndAddData("SpO2", so5, 0.01, true);
+            string s5 = m_ResultDataBlock.ValidateAndAddData("SpO2", so5, 0.01, true);
 
             double et = (so6 * driSR.basic.co2.amb_press);
-            double? s6 = m_ResultDataBlock.ValidateAndAddData("ET_CO2", et, 0.00001, true);
+            string s6 = m_ResultDataBlock.ValidateAndAddData("ET_CO2", et, 0.00001, true);
 
             short so7 = driSR.basic.aa.et;
             short so8 = driSR.basic.aa.fi;
@@ -684,7 +689,7 @@ namespace VSCaptureWave
 
             m_ResultDataBlock.ValidateAndAddData("AA_ET", so7, 0.01, false, "{0:0.00}");
             m_ResultDataBlock.ValidateAndAddData("AA_FI", so8, 0.01, false, "{0:0.00}");
-            double? s9 = m_ResultDataBlock.ValidateAndAddData("AA_MAC_SUM", so9, 0.01, false, "{0:0.00}");
+            string s9 = m_ResultDataBlock.ValidateAndAddData("AA_MAC_SUM", so9, 0.01, false, "{0:0.00}");
 
             string s10 = "";
 
@@ -749,8 +754,8 @@ namespace VSCaptureWave
             m_ResultDataBlock.ValidateAndAddData("N2O_FI", so12, 0.01, false, "{0:0.00}");
             m_ResultDataBlock.ValidateAndAddData("N2O_ET", so13, 0.01, false, "{0:0.00}");
             m_ResultDataBlock.ValidateAndAddData("CO2_RR", so14, 1, true);
-            double? s15 = m_ResultDataBlock.ValidateAndAddData("T1_Temp", so15, 0.01, false, "{0:0.00}");
-            double? s16 = m_ResultDataBlock.ValidateAndAddData("T2_Temp", so16, 0.01, false, "{0:0.00}");
+            string s15 = m_ResultDataBlock.ValidateAndAddData("T1_Temp", so15, 0.01, false, "{0:0.00}");
+            string s16 = m_ResultDataBlock.ValidateAndAddData("T2_Temp", so16, 0.01, false, "{0:0.00}");
 
             /*string P1Label = GetInvasivePressureLabel(driSR.basic.p1.hdr.label_info);
             string P2Label = GetInvasivePressureLabel(driSR.basic.p2.hdr.label_info);
@@ -761,17 +766,17 @@ namespace VSCaptureWave
             string P3Label = "P3";
 
             m_ResultDataBlock.ValidateAndAddData(P1Label + "_HR", so17, 1, true);
-            double? s18 = m_ResultDataBlock.ValidateAndAddData(P1Label + "_Systolic", so18, 0.01, true);
-            double? s19 = m_ResultDataBlock.ValidateAndAddData(P1Label + "_Diastolic", so19, 0.01, true);
-            double? s20 = m_ResultDataBlock.ValidateAndAddData(P1Label + "_Mean", so20, 0.01, true);
+            string s18 = m_ResultDataBlock.ValidateAndAddData(P1Label + "_Systolic", so18, 0.01, true);
+            string s19 = m_ResultDataBlock.ValidateAndAddData(P1Label + "_Diastolic", so19, 0.01, true);
+            string s20 = m_ResultDataBlock.ValidateAndAddData(P1Label + "_Mean", so20, 0.01, true);
             m_ResultDataBlock.ValidateAndAddData(P2Label + "_HR", so21, 1, true);
-            double? s22 = m_ResultDataBlock.ValidateAndAddData(P2Label + "_Systolic", so22, 0.01, true);
-            double? s23 = m_ResultDataBlock.ValidateAndAddData(P2Label + "_Diastolic", so23, 0.01, true);
-            double? s24 = m_ResultDataBlock.ValidateAndAddData(P2Label + "_Mean", so24, 0.01, true);
+            string s22 = m_ResultDataBlock.ValidateAndAddData(P2Label + "_Systolic", so22, 0.01, true);
+            string s23 = m_ResultDataBlock.ValidateAndAddData(P2Label + "_Diastolic", so23, 0.01, true);
+            string s24 = m_ResultDataBlock.ValidateAndAddData(P2Label + "_Mean", so24, 0.01, true);
             m_ResultDataBlock.ValidateAndAddData(P3Label + "_HR", so36, 1, true);
-            double? s37 = m_ResultDataBlock.ValidateAndAddData(P3Label + "_Systolic", so37, 0.01, true);
-            double? s38 = m_ResultDataBlock.ValidateAndAddData(P3Label + "_Diastolic", so38, 0.01, true);
-            double? s39 = m_ResultDataBlock.ValidateAndAddData(P3Label + "_Mean", so39, 0.01, true);
+            string s37 = m_ResultDataBlock.ValidateAndAddData(P3Label + "_Systolic", so37, 0.01, true);
+            string s38 = m_ResultDataBlock.ValidateAndAddData(P3Label + "_Diastolic", so38, 0.01, true);
+            string s39 = m_ResultDataBlock.ValidateAndAddData(P3Label + "_Mean", so39, 0.01, true);
 
             m_ResultDataBlock.ValidateAndAddData("PPeak", so25, 0.01, true);
             m_ResultDataBlock.ValidateAndAddData("PPlat", so26, 0.01, true);
@@ -914,20 +919,20 @@ namespace VSCaptureWave
             short so3_AVR = driSR.ext1.ecg12.stAVR;
             short so3_AVF = driSR.ext1.ecg12.stAVF;
 
-            double? s1_I = m_ResultDataBlock.ValidateAndAddData("ST_I", so1_I, 0.01, false, "{0:0.00}");
-            double? s1_II = m_ResultDataBlock.ValidateAndAddData("ST_II", so1_II, 0.01, false, "{0:0.00}");
-            double? s1_III = m_ResultDataBlock.ValidateAndAddData("ST_II", so1_III, 0.01, false, "{0:0.00}");
+            string s1_I = m_ResultDataBlock.ValidateAndAddData("ST_I", so1_I, 0.01, false, "{0:0.00}");
+            string s1_II = m_ResultDataBlock.ValidateAndAddData("ST_II", so1_II, 0.01, false, "{0:0.00}");
+            string s1_III = m_ResultDataBlock.ValidateAndAddData("ST_II", so1_III, 0.01, false, "{0:0.00}");
 
-            double? s2_V1 = m_ResultDataBlock.ValidateAndAddData("ST_V1", so2_V1, 0.01, false, "{0:0.00}");
-            double? s2_V2 = m_ResultDataBlock.ValidateAndAddData("ST_V2", so2_V2, 0.01, false, "{0:0.00}");
-            double? s2_V3 = m_ResultDataBlock.ValidateAndAddData("ST_V3", so2_V3, 0.01, false, "{0:0.00}");
-            double? s2_V4 = m_ResultDataBlock.ValidateAndAddData("ST_V4", so2_V4, 0.01, false, "{0:0.00}");
-            double? s2_V5 = m_ResultDataBlock.ValidateAndAddData("ST_V5", so2_V5, 0.01, false, "{0:0.00}");
-            double? s2_V6 = m_ResultDataBlock.ValidateAndAddData("ST_V6", so2_V6, 0.01, false, "{0:0.00}");
+            string s2_V1 = m_ResultDataBlock.ValidateAndAddData("ST_V1", so2_V1, 0.01, false, "{0:0.00}");
+            string s2_V2 = m_ResultDataBlock.ValidateAndAddData("ST_V2", so2_V2, 0.01, false, "{0:0.00}");
+            string s2_V3 = m_ResultDataBlock.ValidateAndAddData("ST_V3", so2_V3, 0.01, false, "{0:0.00}");
+            string s2_V4 = m_ResultDataBlock.ValidateAndAddData("ST_V4", so2_V4, 0.01, false, "{0:0.00}");
+            string s2_V5 = m_ResultDataBlock.ValidateAndAddData("ST_V5", so2_V5, 0.01, false, "{0:0.00}");
+            string s2_V6 = m_ResultDataBlock.ValidateAndAddData("ST_V6", so2_V6, 0.01, false, "{0:0.00}");
 
-            double? s3_AVL = m_ResultDataBlock.ValidateAndAddData("ST_aVL", so3_AVL, 0.01, false, "{0:0.00}");
-            double? s3_AVR = m_ResultDataBlock.ValidateAndAddData("ST_aVR", so3_AVR, 0.01, false, "{0:0.00}");
-            double? s3_AVF = m_ResultDataBlock.ValidateAndAddData("ST_aVF", so3_AVF, 0.01, false, "{0:0.00}");
+            string s3_AVL = m_ResultDataBlock.ValidateAndAddData("ST_aVL", so3_AVL, 0.01, false, "{0:0.00}");
+            string s3_AVR = m_ResultDataBlock.ValidateAndAddData("ST_aVR", so3_AVR, 0.01, false, "{0:0.00}");
+            string s3_AVF = m_ResultDataBlock.ValidateAndAddData("ST_aVF", so3_AVF, 0.01, false, "{0:0.00}");
 
             short so4 = driSR.ext2.ent.eeg_ent;
             short so5 = driSR.ext2.ent.emg_ent;

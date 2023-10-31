@@ -4,7 +4,7 @@ namespace VSCaptureWave
 {
     public class KafkaRestProxyMessage
     {
-        [JsonPropertyName("Records")]
+        [JsonPropertyName("records")]
         public readonly List<KafkaDataRecord> Records;
 
         public KafkaRestProxyMessage(ReceivedDataBlock dataBlock)
@@ -18,9 +18,9 @@ namespace VSCaptureWave
 
     public class KafkaDataRecord
     {
-        [JsonPropertyName("Key")]
+        [JsonPropertyName("key")]
         public readonly string Key;
-        [JsonPropertyName("Value")]
+        [JsonPropertyName("value")]
         public readonly ReceivedDataBlock Value;
 
         public KafkaDataRecord(string key, ReceivedDataBlock value)

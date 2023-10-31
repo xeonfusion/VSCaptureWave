@@ -44,7 +44,7 @@ namespace VSCaptureWave
             return Values == null || Values.Count == 0;
         }
 
-        public double? ValidateAndAddData(string physio_id, object value, double decimalshift, bool rounddata, string decimalformat = null)
+        public string ValidateAndAddData(string physio_id, object value, double decimalshift, bool rounddata, string decimalformat = null)
         {
             int val = Convert.ToInt32(value);
 
@@ -54,14 +54,20 @@ namespace VSCaptureWave
                 dval = Convert.ToDouble(value, CultureInfo.InvariantCulture) * decimalshift;
                 if (rounddata) dval = Math.Round((double)dval);
             }
-
-            if (this.Values == null) {
-                this.Values = new();
+            
+            if (dval != null)
+            {
+                if (this.Values == null)
+                {
+                    this.Values = new();
+                }
+                Values.Add(new ReceivedDataValue(physio_id, dval, decimalformat));
+                return dval.ToString();
             }
-
-            Values.Add(new ReceivedDataValue(physio_id, dval, decimalformat));
-
-            return dval;
+            else
+            {
+                return "-";
+            }
         }
     }
 
