@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "VSCaptureWave": {
+      "commandName": "Project",
+      "commandLineArgs": "-port COM2 -interval 5 -export 2 -kafka y -devid s5test -exportDataFile S5DataExport1.csv -waveset 0 -url http://localhost:28082/topics/arinfo-adapter-data -user test -passw test"
+    }
+  }
+}

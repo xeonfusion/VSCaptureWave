@@ -15,16 +15,24 @@
     You should have received a copy of the GNU Lesser General Public License
     along with VitalSignsCapture.  If not, see <http://www.gnu.org/licenses/>.*/
 
+using log4net;
 using System.IO.Ports;
 
-
+[assembly: log4net.Config.XmlConfigurator(Watch = true)]
 namespace VSCaptureWave
 {
     class Program
     {
+        private static readonly ILog log = LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType);
+
         static EventHandler dataEvent;
         public static string DeviceID;
+
         public static string JSONPostUrl;
+        public static string JSONPostUser;
+        public static string JSONPostPassw;
+        public static string JSONPostKafka;
+
         public static string MQTTUrl;
         public static string MQTTtopic;
         public static string MQTTuser;
@@ -32,12 +40,12 @@ namespace VSCaptureWave
 
         static void Main(string[] args)
         {
-            Console.WriteLine("VitalSignsCaptureWave v1.011 (C)2015-22 John George K.");
+            log.Info("Starting VitalSignsCaptureWave v1.012 (C)2015-22 John George K., 2023 Evgenii Balakhonov");
             Console.WriteLine("For command line usage: -help");
             Console.WriteLine();
 
             // Create a new SerialPort object with default settings.
-            DSerialPort _serialPort = DSerialPort.getInstance;
+            DSerialPort _serialPort = DSerialPort.GetInstance;
             string portName;
             string sInterval;
             string sWaveformSet;
@@ -48,14 +56,16 @@ namespace VSCaptureWave
             if (parser.Arguments.ContainsKey("help"))
             {
                 Console.WriteLine("VSCaptureWave.exe -port [portname] -interval [number] -waveset [number]");
-                Console.WriteLine(" -waveset[number] -export[number] -devid[name] -url [name]");
+                Console.WriteLine("-waveset [number] -export [number] -devid [name] -url [name]");
                 Console.WriteLine("-port <Set serial port name>");
                 Console.WriteLine("-interval <Set numeric transmission interval>");
                 Console.WriteLine("-waveset <Set waveform transmission set option>");
-                Console.WriteLine("-export <Set data export CSV, MQTT or JSON option>");
+                Console.WriteLine("-export <Set data export 1 - CSV, 2 - JSON, 3 - MQTT option>");
+                Console.WriteLine("-exportDataFile <Set file name for CSV export");                
                 Console.WriteLine("-devid <Set device ID for MQTT or JSON export>");
                 Console.WriteLine("-url <Set MQTT or JSON export url>");
                 Console.WriteLine("-topic <Set topic for MQTT export>");
+                Console.WriteLine("-kafka <Set Kafka REST Proxy mode (y/n)");
                 Console.WriteLine("-user <Set username for MQTT export>");
                 Console.WriteLine("-passw <Set password for MQTT export>");
                 Console.WriteLine();
@@ -74,19 +84,16 @@ namespace VSCaptureWave
                     Console.WriteLine(" {0}", s);
                 }
 
-
                 Console.Write("COM port({0}): ", _serialPort.PortName.ToString());
                 portName = Console.ReadLine();
-
             }
-
+            log.Info($"Selected COM port: {portName}");
 
             if (portName != "")
             {
                 // Allow the user to set the appropriate properties.
                 _serialPort.PortName = portName;
             }
-
 
             try
             {
@@ -105,7 +112,7 @@ namespace VSCaptureWave
                 if (!parser.Arguments.ContainsKey("port"))
                 {
                     Console.WriteLine("You may now connect the serial cable to the GE Datex S/5 Monitor");
-                    Console.WriteLine("Press any key to continue..");
+                    Console.WriteLine("Press any Key to continue..");
 
                     Console.ReadKey(true);
 
@@ -137,111 +144,163 @@ namespace VSCaptureWave
                         Console.WriteLine();
                         Console.WriteLine("Data export options:");
                         Console.WriteLine("1. Export as CSV files");
-                        Console.WriteLine("2. Export as CSV files and JSON to URL");
+                        Console.WriteLine("2. Export as JSON to URL");
                         Console.WriteLine("3. Export as MQTT to URL");
                         Console.WriteLine();
                         Console.Write("Choose data export option (1-3):");
 
                         sDataExportset = Console.ReadLine();
-
                     }
+                    log.Info($"Selected data export option: {sDataExportset}");
 
                     int nDataExportset = 1;
                     if (sDataExportset != "") nDataExportset = Convert.ToInt32(sDataExportset);
 
-                    if (nDataExportset == 2)
+                    switch (nDataExportset)
                     {
-                        if (parser.Arguments.ContainsKey("devid"))
-                        {
-                            DeviceID = parser.Arguments["devid"][0];
-                        }
-                        else
-                        {
-                            Console.Write("Enter Device ID/Name:");
-                            DeviceID = Console.ReadLine();
+                        case 1:
+                            {
+                                if (parser.Arguments.ContainsKey("exportDataFile"))
+                                {
+                                    _serialPort.CsvExport = new(parser.Arguments["exportDataFile"][0]);
+                                }
+                                else
+                                {
+                                    Console.WriteLine("Enter a CSV file name to save the receiving data ('" + CsvExport.DEFAULT_EXPORT_FILE_NAME + "' by default):");
+                                    string csvFileName = Console.ReadLine();
+                                    _serialPort.CsvExport = new(!String.IsNullOrEmpty(csvFileName) ? 
+                                        (csvFileName.Contains('/') || csvFileName.Contains('\\') ? csvFileName : Path.Combine(Directory.GetCurrentDirectory(), csvFileName)) :
+                                        Path.Combine(Directory.GetCurrentDirectory(), CsvExport.DEFAULT_EXPORT_FILE_NAME));
+                                }
+                                log.Info($"Data will be written to CSV file {_serialPort.CsvExport.ExportFileName}");
+                            }
+                            break;
 
-                        }
+                        case 2:
+                            {
+                                if (parser.Arguments.ContainsKey("devid"))
+                                {
+                                    DeviceID = parser.Arguments["devid"][0];
+                                }
+                                else
+                                {
+                                    Console.Write("Enter Device ID/Name:");
+                                    DeviceID = Console.ReadLine();
 
-                        if (parser.Arguments.ContainsKey("url"))
-                        {
-                            JSONPostUrl = parser.Arguments["url"][0];
-                        }
-                        else
-                        {
-                            Console.Write("Enter JSON Data Export URL(http://):");
-                            JSONPostUrl = Console.ReadLine();
+                                }
 
-                        }
-                    }
+                                if (parser.Arguments.ContainsKey("url"))
+                                {
+                                    JSONPostUrl = parser.Arguments["url"][0];
+                                }
+                                else
+                                {
+                                    Console.Write("Enter JSON Data Export URL(http://):");
+                                    JSONPostUrl = Console.ReadLine();
+                                }
 
-                    if (nDataExportset == 3)
-                    {
-                        if (parser.Arguments.ContainsKey("devid"))
-                        {
-                            DeviceID = parser.Arguments["devid"][0];
-                        }
-                        else
-                        {
-                            Console.Write("Enter Device ID/Name:");
-                            DeviceID = Console.ReadLine();
+                                if (parser.Arguments.ContainsKey("user"))
+                                {
+                                    JSONPostUser = parser.Arguments["user"][0];
+                                }
+                                else
+                                {
+                                    Console.Write("Enter JSON Server Username:");
+                                    JSONPostUser = Console.ReadLine();
+                                }
 
-                        }
+                                if (parser.Arguments.ContainsKey("passw"))
+                                {
+                                    JSONPostPassw = parser.Arguments["passw"][0];
+                                }
+                                else
+                                {
+                                    Console.Write("Enter JSON Server Password:");
+                                    JSONPostPassw = Console.ReadLine();
+                                }
 
-                        if (parser.Arguments.ContainsKey("url"))
-                        {
-                            MQTTUrl = parser.Arguments["url"][0];
-                        }
-                        else
-                        {
-                            Console.Write("Enter MQTT WebSocket Server URL(ws://):");
-                            MQTTUrl = Console.ReadLine();
+                                if (parser.Arguments.ContainsKey("kafka"))
+                                {
+                                    JSONPostKafka = parser.Arguments["kafka"][0];
+                                }
+                                else
+                                {
+                                    Console.Write("Enable Kafka REST Proxy mode (y/n)?");
+                                    JSONPostKafka = Console.ReadLine();
+                                }
 
-                        }
+                                _serialPort.JsonServerClient = new(JSONPostUrl, JSONPostUser, JSONPostPassw, 
+                                    JSONPostKafka != null && string.Equals("y", JSONPostKafka, StringComparison.OrdinalIgnoreCase));
+                                log.Info($"Data will be sent to JSON Server {_serialPort.JsonServerClient.Uri}, KafkaProxyMode = {_serialPort.JsonServerClient.KafkaProxyMode}");
+                            }
+                            break;
+                        case 3:
+                            {
 
-                        if (parser.Arguments.ContainsKey("topic"))
-                        {
-                            MQTTtopic = parser.Arguments["topic"][0];
-                        }
-                        else
-                        {
-                            Console.Write("Enter MQTT Topic:");
-                            MQTTtopic = Console.ReadLine();
+                                if (parser.Arguments.ContainsKey("devid"))
+                                {
+                                    DeviceID = parser.Arguments["devid"][0];
+                                }
+                                else
+                                {
+                                    Console.Write("Enter Device ID/Name:");
+                                    DeviceID = Console.ReadLine();
 
-                        }
+                                }
 
-                        if (parser.Arguments.ContainsKey("user"))
-                        {
-                            MQTTuser = parser.Arguments["user"][0];
-                        }
-                        else
-                        {
-                            Console.Write("Enter MQTT Username:");
-                            MQTTuser = Console.ReadLine();
+                                if (parser.Arguments.ContainsKey("url"))
+                                {
+                                    MQTTUrl = parser.Arguments["url"][0];
+                                }
+                                else
+                                {
+                                    Console.Write("Enter MQTT WebSocket Server URL(ws://):");
+                                    MQTTUrl = Console.ReadLine();
 
-                        }
+                                }
 
-                        if (parser.Arguments.ContainsKey("passw"))
-                        {
-                            MQTTpassw = parser.Arguments["passw"][0];
-                        }
-                        else
-                        {
-                            Console.Write("Enter MQTT Password:");
-                            MQTTpassw = Console.ReadLine();
+                                if (parser.Arguments.ContainsKey("topic"))
+                                {
+                                    MQTTtopic = parser.Arguments["topic"][0];
+                                }
+                                else
+                                {
+                                    Console.Write("Enter MQTT Topic:");
+                                    MQTTtopic = Console.ReadLine();
 
-                        }
+                                }
 
+                                if (parser.Arguments.ContainsKey("user"))
+                                {
+                                    MQTTuser = parser.Arguments["user"][0];
+                                }
+                                else
+                                {
+                                    Console.Write("Enter MQTT Username:");
+                                    MQTTuser = Console.ReadLine();
+
+                                }
+
+                                if (parser.Arguments.ContainsKey("passw"))
+                                {
+                                    MQTTpassw = parser.Arguments["passw"][0];
+                                }
+                                else
+                                {
+                                    Console.Write("Enter MQTT Password:");
+                                    MQTTpassw = Console.ReadLine();
+
+                                }
+
+                                _serialPort.MQTTClient = new(MQTTUrl, MQTTtopic, MQTTuser, MQTTpassw);
+                                log.Info($"Data will be sent to MQTT broker {_serialPort.MQTTClient.MQTTUrl}");
+                            }
+                            break;
                     }
 
                     _serialPort.m_DeviceID = DeviceID;
-                    _serialPort.m_jsonposturl = JSONPostUrl;
-                    _serialPort.m_MQTTUrl = MQTTUrl;
-                    _serialPort.m_MQTTtopic = MQTTtopic;
-                    _serialPort.m_MQTTuser = MQTTuser;
-                    _serialPort.m_MQTTpassw = MQTTpassw;
 
                     if (nDataExportset > 0 && nDataExportset < 4) _serialPort.m_dataexportset = nDataExportset;
-
 
                     if (parser.Arguments.ContainsKey("waveset"))
                     {
@@ -266,19 +325,22 @@ namespace VSCaptureWave
                         Console.Write("Choose Waveform data Transmission set (0-10):");
 
                         sWaveformSet = Console.ReadLine();
-
                     }
 
-                    short nWaveformSet = 1;
+                    log.Info($"Enabled Waveform data Transmission set: {sWaveformSet}");
+
+                    short nWaveformSet = 0;
                     if (sWaveformSet != "") nWaveformSet = Convert.ToInt16(sWaveformSet);
 
+                    if (nWaveformSet > 0 && nDataExportset == 1)
+                    {
+                        log.Info($"Waveform data will be written to multiple CSV files in same folder with file {_serialPort.CsvExport.ExportFileName}");
+                    }
 
-                    Console.WriteLine("Requesting {0} second Transmission from monitor", nInterval);
+                    log.Info($"Requesting {nInterval} second Transmission from monitor");
 
                     //Console.WriteLine("Requesting Transmission from monitor");
-                    Console.WriteLine();
-                    Console.WriteLine("Data will be written to CSV file S5DataExport.csv in same folder");
-
+                                        
                     //_serialPort.RequestTransfer(DataConstants.DRI_PH_DISPL, nInterval); // Add Request Transmission
 
                     //_serialPort.RequestTransfer(DataConstants.DRI_PH_DISPL, -1); // Add Single Request Transmission
@@ -304,10 +366,6 @@ namespace VSCaptureWave
 
                     if (nWaveformSet != 0)
                     {
-                        Console.WriteLine();
-                        Console.WriteLine("Requesting Waveform data from monitor");
-                        Console.WriteLine("Waveform data will be written to multiple CSV files in same folder");
-
                         _serialPort.RequestMultipleWaveTransfer(WaveTrtype, DataConstants.WF_REQ_CONT_START, DataConstants.DRI_LEVEL_2015);
                         _serialPort.RequestMultipleWaveTransfer(WaveTrtype, DataConstants.WF_REQ_CONT_START, DataConstants.DRI_LEVEL_2009);
                         _serialPort.RequestMultipleWaveTransfer(WaveTrtype, DataConstants.WF_REQ_CONT_START, DataConstants.DRI_LEVEL_2005);
@@ -351,21 +409,15 @@ namespace VSCaptureWave
             }
             catch (Exception ex)
             {
-                Console.WriteLine("Error opening/writing to serial port :: " + ex.Message, "Error!");
+                log.Error($"Error opening/writing to serial port :: {ex.Message}", ex);
             }
             finally
             {
                 _serialPort.StopTransfer();
-
                 _serialPort.StopwaveTransfer();
-
                 _serialPort.Close();
-
             }
-
-
         }
-
 
         static void p_DataReceived(object sender, SerialDataReceivedEventArgs e)
         {
