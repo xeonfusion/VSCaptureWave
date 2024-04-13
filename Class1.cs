@@ -1,6 +1,6 @@
 ﻿/*
- * This file is part of VitalSignsCaptureWave v1.011.
- * Copyright (C) 2015-22 John George K., xeonfusion@users.sourceforge.net
+ * This file is part of VitalSignsCaptureWave v1.012.
+ * Copyright (C) 2015-24 John George K., xeonfusion@users.sourceforge.net
 
     VitalSignsCapture is free software: you can redistribute it and/or modify
     it under the terms of the GNU Lesser General Public License as published by
@@ -15,25 +15,16 @@
     You should have received a copy of the GNU Lesser General Public License
     along with VitalSignsCapture.  If not, see <http://www.gnu.org/licenses/>.*/
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Text;
 using System.IO.Ports;
-using System.IO;
 using System.Runtime.InteropServices;
-using System.Threading;
 using System.Globalization;
 using System.Net;
-using System.Threading.Tasks;
-using System.Net.Http;
 using System.Text.Json;
 
 using MQTTnet;
-//using MQTTnet.Client;
-using MQTTnet.Client.Options;
+using MQTTnet.Client;
 using MQTTnet.Extensions.ManagedClient;
-using MQTTnet.Client.Connecting;
 
 namespace VSCaptureWave
 {
@@ -325,6 +316,7 @@ namespace VSCaptureWave
                     {
                         FrameList.Add(bArray);
                     }
+                    else Console.WriteLine("Checksum Error");
                     m_bList.Clear();
                     m_storeend = false;
                 }
@@ -800,6 +792,8 @@ namespace VSCaptureWave
             double so37 = driSR.basic.p3.sys;
             double so38 = driSR.basic.p3.dia;
             double so39 = driSR.basic.p3.mean;
+            double so40 = driSR.basic.ecg.imp_rr;
+
 
             double so25 = driSR.basic.flow_vol.ppeak;
             double so26 = driSR.basic.flow_vol.pplat;
@@ -840,6 +834,7 @@ namespace VSCaptureWave
             string s39 = ValidateAddData(P3Label + "_Mean", so39, 0.01, true);
 
 
+
             ValidateAddData("PPeak", so25, 0.01, true);
             ValidateAddData("PPlat", so26, 0.01, true);
             ValidateAddData("TV_Exp", so27, 0.1, true);
@@ -848,6 +843,7 @@ namespace VSCaptureWave
             ValidateAddData("MV_Exp", so30, 0.01, false, "{0:0.00}");
             ValidateAddData("Compliance", so31, 0.01, true);
             ValidateAddData("RR", so32, 1, true);
+            ValidateAddData("ECG_RR", so40, 1, true);
 
             Console.WriteLine("ECG HR {0:d}/min NIBP {1:d}/{2:d}({3:d})mmHg SpO2 {4:d}% ETCO2 {5:d}mmHg", s1, s2, s3, s4, s5, s6);
             Console.WriteLine("IBP1 {0:d}/{1:d}({2:d})mmHg IBP2 {3:d}/{4:d}({5:d})mmHg MAC {6} T1 {7}°C T2 {8}°C", s18, s19, s20, s22, s23, s24, s9, s15, s16);
@@ -1015,6 +1011,82 @@ namespace VSCaptureWave
             ValidateAddData("SPV", so16, 0.01, false, "{0:0.0}");
             ValidateAddData("PPV", so17, 0.01, false, "{0:0.0}");
             ValidateAddData("MAC_AGE_SUM", so18, 1, false, "{0:0.00}");
+
+            short so19 = driSR.ext2.eeg.femg;
+            ValidateAddData("EEG_FEMG", so19, 0.1, false);
+
+            short so20 = driSR.ext2.eeg.eeg1.ampl;
+            short so21 = driSR.ext2.eeg.eeg1.sef;
+            short so22 = driSR.ext2.eeg.eeg1.mf;
+            short so23 = driSR.ext2.eeg.eeg1.delta_proc;
+            short so24 = driSR.ext2.eeg.eeg1.theta_proc;
+            short so25 = driSR.ext2.eeg.eeg1.alpha_proc;
+            short so26 = driSR.ext2.eeg.eeg1.beta_proc;
+            short so27 = driSR.ext2.eeg.eeg1.bsr;
+
+            ValidateAddData("EEG1_AMPL", so20, 0.1, false);
+            ValidateAddData("EEG1_SEF", so21, 0.1, false);
+            ValidateAddData("EEG1_MF", so22, 0.1, false);
+            ValidateAddData("EEG1_DELTA_PROC", so23, 1, false);
+            ValidateAddData("EEG1_THETA_PROC", so24, 1, false);
+            ValidateAddData("EEG1_ALPHA_PROC", so25, 1, false);
+            ValidateAddData("EEG1_BETA_PROC", so26, 1, false);
+            ValidateAddData("EEG1_BSR", so27, 1, false);
+
+            short so28 = driSR.ext2.eeg.eeg2.ampl;
+            short so29 = driSR.ext2.eeg.eeg2.sef;
+            short so30 = driSR.ext2.eeg.eeg2.mf;
+            short so31 = driSR.ext2.eeg.eeg2.delta_proc;
+            short so32 = driSR.ext2.eeg.eeg2.theta_proc;
+            short so33 = driSR.ext2.eeg.eeg2.alpha_proc;
+            short so34 = driSR.ext2.eeg.eeg2.beta_proc;
+            short so35 = driSR.ext2.eeg.eeg2.bsr;
+
+            ValidateAddData("EEG2_AMPL", so28, 0.1, false);
+            ValidateAddData("EEG2_SEF", so29, 0.1, false);
+            ValidateAddData("EEG2_MF", so30, 0.1, false);
+            ValidateAddData("EEG2_DELTA_PROC", so31, 1, false);
+            ValidateAddData("EEG2_THETA_PROC", so32, 1, false);
+            ValidateAddData("EEG2_ALPHA_PROC", so33, 1, false);
+            ValidateAddData("EEG2_BETA_PROC", so34, 1, false);
+            ValidateAddData("EEG2_BSR", so35, 1, false);
+
+            short so36 = driSR.ext2.eeg.eeg3.ampl;
+            short so37 = driSR.ext2.eeg.eeg3.sef;
+            short so38 = driSR.ext2.eeg.eeg3.mf;
+            short so39 = driSR.ext2.eeg.eeg3.delta_proc;
+            short so40 = driSR.ext2.eeg.eeg3.theta_proc;
+            short so41 = driSR.ext2.eeg.eeg3.alpha_proc;
+            short so42 = driSR.ext2.eeg.eeg3.beta_proc;
+            short so43 = driSR.ext2.eeg.eeg3.bsr;
+
+            ValidateAddData("EEG3_AMPL", so36, 0.1, false);
+            ValidateAddData("EEG3_SEF", so37, 0.1, false);
+            ValidateAddData("EEG3_MF", so38, 0.1, false);
+            ValidateAddData("EEG3_DELTA_PROC", so39, 1, false);
+            ValidateAddData("EEG3_THETA_PROC", so40, 1, false);
+            ValidateAddData("EEG3_ALPHA_PROC", so41, 1, false);
+            ValidateAddData("EEG3_BETA_PROC", so42, 1, false);
+            ValidateAddData("EEG3_BSR", so43, 1, false);
+
+            short so44 = driSR.ext2.eeg.eeg4.ampl;
+            short so45 = driSR.ext2.eeg.eeg4.sef;
+            short so46 = driSR.ext2.eeg.eeg4.mf;
+            short so47 = driSR.ext2.eeg.eeg4.delta_proc;
+            short so48 = driSR.ext2.eeg.eeg4.theta_proc;
+            short so49 = driSR.ext2.eeg.eeg4.alpha_proc;
+            short so50 = driSR.ext2.eeg.eeg4.beta_proc;
+            short so51 = driSR.ext2.eeg.eeg4.bsr;
+
+            ValidateAddData("EEG4_AMPL", so44, 0.1, false);
+            ValidateAddData("EEG4_SEF", so45, 0.1, false);
+            ValidateAddData("EEG4_MF", so46, 0.1, false);
+            ValidateAddData("EEG4_DELTA_PROC", so47, 1, false);
+            ValidateAddData("EEG4_THETA_PROC", so48, 1, false);
+            ValidateAddData("EEG4_ALPHA_PROC", so49, 1, false);
+            ValidateAddData("EEG4_BETA_PROC", so50, 1, false);
+            ValidateAddData("EEG4_BSR", so51, 1, false);
+
 
         }
 
@@ -1301,8 +1373,9 @@ namespace VSCaptureWave
 
             var mqttClient = new MqttFactory().CreateMqttClient();
             var logger = new MqttFactory().DefaultLogger;
-            //var managedClient = new ManagedMqttClient(mqttClient, IMqttNetLogger);
             var managedClient = new ManagedMqttClient(mqttClient, logger);
+
+            var topic = m_MQTTtopic + string.Format("/{0}", datatype);
 
             try
             {
@@ -1312,6 +1385,8 @@ namespace VSCaptureWave
                     await ConnectMQTTAsync(managedClient, token, m_MQTTUrl, m_MQTTclientId, m_MQTTuser, m_MQTTpassw);
                     await connected;
 
+                    //await PublishMQTTAsync(managedClient, token, topic, serializedJSON);
+                    //await managedClient.StopAsync();
                 });
 
                 task.ContinueWith(antecedent => {
@@ -1319,24 +1394,34 @@ namespace VSCaptureWave
                     {
                         Task.Run(async () =>
                         {
-                            await PublishMQTTAsync(managedClient, token, m_MQTTtopic, serializedJSON);
+                            await PublishMQTTAsync(managedClient, token, topic, serializedJSON);
                             await managedClient.StopAsync();
                         });
                     }
                 });
 
-                //ConnectMQTTAsync(m_mqttClient, token, m_MQTTUrl, m_MQTTclientId, m_MQTTuser, m_MQTTpassw).Wait();
-                //m_MQTTtopic = String.Format("/VSCapture/{0}/numericdata/", m_DeviceID);
-                //PublishMQTTAsync(m_mqttClient, token, m_MQTTtopic, serializedJSON).Wait();
             }
 
             catch (Exception _Exception)
             {
-                // Error. 
                 Console.WriteLine("Exception caught in process: {0}", _Exception.ToString());
             }
 
         }
+
+        Task GetConnectedTask(ManagedMqttClient managedClient)
+            {
+                TaskCompletionSource<bool> connected = new TaskCompletionSource<bool>();
+                managedClient.ConnectedAsync += (MqttClientConnectedEventArgs arg) => {
+
+                    connected.SetResult(true);
+                    //Console.WriteLine("MQTT Client connected");
+                    return Task.CompletedTask;
+                };
+            
+                return connected.Task;
+   
+            }
 
         public static async Task ConnectMQTTAsync(ManagedMqttClient mqttClient, CancellationToken token, string mqtturl, string clientId, string mqttuser, string mqttpassw)
         {
@@ -1345,19 +1430,25 @@ namespace VSCaptureWave
             var messageBuilder = new MqttClientOptionsBuilder()
             .WithClientId(clientId)
             .WithCredentials(mqttuser, mqttpassw)
-            .WithCommunicationTimeout(new TimeSpan(0, 0, 10))
-            .WithWebSocketServer(mqtturl)
-            .WithCleanSession();
+            .WithCleanSession()
+            .WithWebSocketServer((MqttClientWebSocketOptionsBuilder b) =>
+            {                                            
+                b.WithUri(mqtturl);
+            });
+
+            var tlsOptions = new MqttClientTlsOptionsBuilder()
+               .WithSslProtocols(System.Security.Authentication.SslProtocols.Tls12)
+               .Build();
 
             var options = mqttSecure
             ? messageBuilder
-                .WithTls()
+            .WithTlsOptions(tlsOptions)
                 .Build()
             : messageBuilder
                 .Build();
 
             var managedOptions = new ManagedMqttClientOptionsBuilder()
-              .WithAutoReconnectDelay(TimeSpan.FromSeconds(5))
+              .WithAutoReconnectDelay(TimeSpan.FromSeconds(1))
               .WithClientOptions(options)
               .Build();
 
@@ -1367,30 +1458,17 @@ namespace VSCaptureWave
 
         public static async Task PublishMQTTAsync(ManagedMqttClient mqttClient, CancellationToken token, string topic, string payload, bool retainFlag = true, int qos = 1)
         {
-            if (mqttClient.IsConnected)
-            {
-                await mqttClient.PublishAsync(new MqttApplicationMessageBuilder()
-               .WithTopic(topic)
-               .WithPayload(payload)
-               .WithQualityOfServiceLevel((MQTTnet.Protocol.MqttQualityOfServiceLevel)qos)
-               .WithRetainFlag(retainFlag)
-               .Build(), token);
-            }
+            await mqttClient.EnqueueAsync(topic, payload, (MQTTnet.Protocol.MqttQualityOfServiceLevel)qos, retainFlag);
+            //Console.WriteLine("The managed MQTT client is connected, publishing data.");
+
+            // Wait until the queue is fully processed.
+            SpinWait.SpinUntil(() => mqttClient.PendingApplicationMessagesCount == 0, 5000);
+            //Console.WriteLine($"Pending messages = {mqttClient.PendingApplicationMessagesCount}");
 
         }
 
-        Task GetConnectedTask(ManagedMqttClient managedClient)
-        {
-            TaskCompletionSource<bool> connected = new TaskCompletionSource<bool>();
-            managedClient.ConnectedHandler = new MqttClientConnectedHandlerDelegate(e =>
-            {
-                managedClient.ConnectedHandler = null;
-                connected.SetResult(true);
-            });
-            return connected.Task;
-        }
-
-        public bool OSIsUnix()
+    
+    public bool OSIsUnix()
         {
             int p = (int)Environment.OSVersion.Platform;
             if ((p == 4) || (p == 6) || (p == 128)) return true;

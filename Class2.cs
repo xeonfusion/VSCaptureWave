@@ -1,6 +1,6 @@
 ﻿/*
- * This file is part of VitalSignsCaptureWave v1.011.
- * Copyright (C) 2015-22 John George K., xeonfusion@users.sourceforge.net
+ * This file is part of VitalSignsCaptureWave v1.012.
+ * Copyright (C) 2015-24 John George K., xeonfusion@users.sourceforge.net
  * Portions of code (C) 1998 Stefan Lombaard
 
     VitalSignsCapture is free software: you can redistribute it and/or modify
@@ -621,7 +621,7 @@ namespace VSCaptureWave
     //*********************************************************************
 
 
-    static class DataConstants
+    public static class DataConstants
     {
 
         // Data validity macros
