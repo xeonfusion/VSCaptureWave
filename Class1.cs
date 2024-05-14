@@ -25,6 +25,7 @@ using System.Text.Json;
 using MQTTnet;
 using MQTTnet.Client;
 using MQTTnet.Extensions.ManagedClient;
+using System.ComponentModel.DataAnnotations;
 
 namespace VSCaptureWave
 {
@@ -588,13 +589,8 @@ namespace VSCaptureWave
 
                     ShowBasicSubRecord(phdata_ptr);
                     ShowExt1Ext2Ext3SubRecord(phdata_ptr);
-
-                    if (m_dataexportset == 2) ExportNumValListToJSON();
-                    if (m_dataexportset == 3) ExportNumValListToMQTT("Numeric");
-                    if (m_dataexportset != 3)
-                    {
-                        SaveNumericValueListRows();
-                    }
+                    
+                    SaveNumericValueListRows("Numerics");
 
                 }
             }
@@ -1097,7 +1093,7 @@ namespace VSCaptureWave
             double dval = Convert.ToDouble(value, CultureInfo.InvariantCulture) * decimalshift;
             if (rounddata) dval = Math.Round(dval);
 
-            string valuestr = dval.ToString();
+            string valuestr = dval.ToString(CultureInfo.InvariantCulture);
 
             if (val < DataConstants.DATA_INVALID_LIMIT)
             {
@@ -1123,7 +1119,7 @@ namespace VSCaptureWave
             double dval = Convert.ToDouble(value, CultureInfo.InvariantCulture) * decimalshift;
             if (rounddata) dval = Math.Round(dval);
 
-            string valuestr = String.Format(decimalformat, dval);
+            string valuestr = String.Format(CultureInfo.InvariantCulture, decimalformat, dval);
 
             if (val < DataConstants.DATA_INVALID_LIMIT)
             {
@@ -1244,33 +1240,39 @@ namespace VSCaptureWave
         }
 
 
-        public void SaveNumericValueListRows()
+        public void SaveNumericValueListRows(string datatype)
         {
-            if (m_NumericValList.Count != 0)
+            if (m_dataexportset == 2) ExportNumValListToJSON(datatype);
+            if (m_dataexportset == 3) ExportNumValListToMQTT(datatype);
+            if (m_dataexportset == 4) ExportNumValListToJSONFile(datatype);
+            if (m_dataexportset != 3 && m_dataexportset != 4)
             {
-                WriteNumericHeadersList();
-                string pathcsv = Path.Combine(Directory.GetCurrentDirectory(), "S5DataExport.csv");
-
-                m_strbuildvalues.Append(m_NumericValList.ElementAt(0).Timestamp);
-                m_strbuildvalues.Append(',');
-
-                foreach (NumericValResult NumValResult in m_NumericValList)
+                if (m_NumericValList.Count != 0)
                 {
-                    m_strbuildvalues.Append(NumValResult.Value);
+                    WriteNumericHeadersList();
+                    string pathcsv = Path.Combine(Directory.GetCurrentDirectory(), "S5DataExport.csv");
+
+                    m_strbuildvalues.Append(m_NumericValList.ElementAt(0).Timestamp);
                     m_strbuildvalues.Append(',');
 
+                    foreach (NumericValResult NumValResult in m_NumericValList)
+                    {
+                        m_strbuildvalues.Append(NumValResult.Value);
+                        m_strbuildvalues.Append(',');
+
+                    }
+
+                    m_strbuildvalues.Remove(m_strbuildvalues.Length - 1, 1);
+                    m_strbuildvalues.Replace(",,", ",");
+                    m_strbuildvalues.AppendLine();
+
+                    ExportNumValListToCSVFile(pathcsv, m_strbuildvalues);
+                    m_strbuildvalues.Clear();
+                    m_NumericValList.RemoveRange(0, m_NumericValList.Count);
                 }
-
-                m_strbuildvalues.Remove(m_strbuildvalues.Length - 1, 1);
-                m_strbuildvalues.Replace(",,", ",");
-                m_strbuildvalues.AppendLine();
-
-                ExportNumValListToCSVFile(pathcsv, m_strbuildvalues);
-                m_strbuildvalues.Clear();
-                m_NumericValList.RemoveRange(0, m_NumericValList.Count);
             }
+         
         }
-
 
         public void ExportNumValListToCSVFile(string _FileName, StringBuilder strbuildNumVal)
         {
@@ -1321,7 +1323,7 @@ namespace VSCaptureWave
             return false;
         }
 
-        public void ExportNumValListToJSON()
+        public void ExportNumValListToJSON(string datatype)
         {
             string serializedJSON = JsonSerializer.Serialize(m_NumericValList, new JsonSerializerOptions { IncludeFields = true });
 
@@ -1336,6 +1338,34 @@ namespace VSCaptureWave
 
                 Task.Run(() => PostJSONDataToServer(serializedJSON));
 
+            }
+
+            catch (Exception _Exception)
+            {
+                // Error. 
+                Console.WriteLine("Exception caught in process: {0}", _Exception.ToString());
+            }
+        }
+
+        public void ExportNumValListToJSONFile(string datatype)
+        {
+            string serializedJSON = JsonSerializer.Serialize(m_NumericValList, new JsonSerializerOptions { IncludeFields = true });
+
+            m_NumericValList.RemoveRange(0, m_NumericValList.Count);
+
+            string filename = String.Format("DataExportVSC.json");
+
+            string pathjson = Path.Combine(Directory.GetCurrentDirectory(), filename);
+
+            try
+            {
+                // Open file for reading. 
+                using (StreamWriter wrStream = new StreamWriter(pathjson, true, Encoding.UTF8))
+                {
+                    wrStream.Write(serializedJSON);
+
+                    wrStream.Close();
+                }
             }
 
             catch (Exception _Exception)

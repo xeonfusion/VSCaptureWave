@@ -138,8 +138,9 @@ namespace VSCaptureWave
                     Console.WriteLine("1. Export as CSV files");
                     Console.WriteLine("2. Export as CSV files and JSON to URL");
                     Console.WriteLine("3. Export as MQTT to URL");
+                    Console.WriteLine("4. Export as JSON file");
                     Console.WriteLine();
-                    Console.Write("Choose data export option (1-3):");
+                    Console.Write("Choose data export option (1-4):");
 
                     sDataExportset = Console.ReadLine();
 
@@ -239,7 +240,7 @@ namespace VSCaptureWave
                 _serialPort.m_MQTTuser = MQTTuser;
                 _serialPort.m_MQTTpassw = MQTTpassw;
 
-                if (nDataExportset > 0 && nDataExportset < 4) _serialPort.m_dataexportset = nDataExportset;
+                if (nDataExportset > 0 && nDataExportset < 5) _serialPort.m_dataexportset = nDataExportset;
 
 
                 if (parser.Arguments.ContainsKey("waveset"))
